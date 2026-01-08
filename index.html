@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>PIJS Consensus Node Deployment Guide</title>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+  <meta name="description" content="PIJS Consensus Node Deployment and Staking Guide">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link id="theme-link" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docsify-themeable@0/dist/css/theme-simple.css">
+
+  <style id="custom-theme"></style>
+
+  <style>
+    .theme-switcher {
+      position: fixed;
+      top: 12px;
+      right: 20px;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      backdrop-filter: blur(12px);
+      transition: all 0.3s ease;
+    }
+    .theme-switcher label {
+      font-weight: 500;
+      font-family: 'Inter', sans-serif;
+    }
+    .theme-switcher select {
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-family: 'Inter', sans-serif;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+  </style>
+</head>
+<body>
+  <div class="theme-switcher">
+    <label>Theme:</label>
+    <select id="theme-select" onchange="switchTheme(this.value)">
+      <option value="purple">Purple</option>
+      <option value="teal">Teal</option>
+      <option value="dark">Dark</option>
+      <option value="light">Light</option>
+    </select>
+  </div>
+
+  <div id="app">Loading...</div>
+
+  <script>
+    const themes = {
+      'purple': {
+        css: 'https://cdn.jsdelivr.net/npm/docsify-themeable@0/dist/css/theme-simple.css',
+        custom: `
+          :root {
+            --base-background-color: #fafafa;
+            --base-color: #1a1a2e;
+            --theme-color: #5C4EE5;
+            --theme-color-secondary: #7B6FF0;
+            --text-color-base: #2d2d3a;
+            --heading-color: #1a1a2e;
+            --heading-h1-color: var(--theme-color);
+            --heading-h2-color: #2d2d3a;
+            --link-color: #5C4EE5;
+            --link-color--hover: #4338CA;
+            --link-text-decoration: none;
+            --link-text-decoration--hover: underline;
+            --sidebar-background: #ffffff;
+            --sidebar-border-color: #e8e8f0;
+            --sidebar-border-width: 1px;
+            --sidebar-nav-link-color: #4a4a5a;
+            --sidebar-nav-link-color--active: #5C4EE5;
+            --sidebar-nav-link-font-weight: 500;
+            --sidebar-nav-link-font-weight--active: 600;
+            --sidebar-name-color: #5C4EE5;
+            --sidebar-name-font-weight: 700;
+            --code-font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            --code-inline-background: #f0f0f8;
+            --code-inline-color: #5C4EE5;
+            --code-block-background: #1e1e2e;
+            --code-block-border-radius: 12px;
+            --code-block-padding: 1.2em 1.5em;
+            --blockquote-border-color: #5C4EE5;
+            --blockquote-background: linear-gradient(135deg, #f8f7ff 0%, #f0f0f8 100%);
+            --table-row-even-background: #f8f8fc;
+            --notice-tip-background: #f0f0ff;
+            --base-font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            --heading-font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --base-font-size: 15px;
+            --base-line-height: 1.7;
+          }
+          .theme-switcher {
+            background: rgba(255,255,255,0.9);
+            border: 1px solid #e8e8f0;
+            box-shadow: 0 4px 20px rgba(92,78,229,0.1);
+          }
+          .theme-switcher label { color: #4a4a5a; }
+          .theme-switcher select {
+            background: white;
+            border: 1px solid #e0e0e8;
+            color: #2d2d3a;
+          }
+          .theme-switcher select:hover { border-color: #5C4EE5; }
+          .sidebar-nav > ul > li > a { font-weight: 600; letter-spacing: -0.01em; }
+          .markdown-section { max-width: 860px; }
+          .markdown-section h1 { font-size: 2em; font-weight: 700; letter-spacing: -0.02em; margin-top: 0; }
+          .markdown-section h2 { font-size: 1.5em; font-weight: 600; letter-spacing: -0.01em; padding-bottom: 0.5em; border-bottom: 2px solid #e8e8f0; margin-top: 2em; }
+          .markdown-section h3 { font-size: 1.2em; font-weight: 600; color: #3d3d4d; }
+          .markdown-section p { line-height: 1.8; }
+          .markdown-section code { border-radius: 6px; font-size: 0.9em; padding: 0.2em 0.5em; }
+          .markdown-section pre { border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.12); }
+          .markdown-section pre code { font-size: 0.88em; line-height: 1.6; }
+          .markdown-section table { border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+          .markdown-section th { background: #f8f8fc; font-weight: 600; }
+          .markdown-section blockquote { border-radius: 0 12px 12px 0; padding: 1em 1.5em; margin: 1.5em 0; }
+          .markdown-section a { font-weight: 500; }
+        `
+      },
+
+      'teal': {
+        css: 'https://cdn.jsdelivr.net/npm/docsify-themeable@0/dist/css/theme-simple.css',
+        custom: `
+          :root {
+            --base-background-color: #ffffff;
+            --base-color: #1f2937;
+            --theme-color: #0891B2;
+            --theme-color-secondary: #06B6D4;
+            --text-color-base: #374151;
+            --heading-color: #111827;
+            --heading-h1-color: #0E7490;
+            --heading-h2-color: #1f2937;
+            --link-color: #0891B2;
+            --link-color--hover: #0E7490;
+            --link-text-decoration: none;
+            --link-text-decoration--hover: underline;
+            --sidebar-background: #f8fafc;
+            --sidebar-border-color: #e2e8f0;
+            --sidebar-border-width: 1px;
+            --sidebar-nav-link-color: #475569;
+            --sidebar-nav-link-color--active: #0891B2;
+            --sidebar-nav-link-font-weight: 500;
+            --sidebar-nav-link-font-weight--active: 600;
+            --sidebar-name-color: #0E7490;
+            --sidebar-name-font-weight: 700;
+            --code-font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            --code-inline-background: #f1f5f9;
+            --code-inline-color: #0E7490;
+            --code-block-background: #0f172a;
+            --code-block-border-radius: 10px;
+            --code-block-padding: 1.2em 1.5em;
+            --blockquote-border-color: #0891B2;
+            --blockquote-background: linear-gradient(135deg, #f0fdfa 0%, #f1f5f9 100%);
+            --table-row-even-background: #f8fafc;
+            --notice-tip-background: #ecfeff;
+            --base-font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            --heading-font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --base-font-size: 15px;
+            --base-line-height: 1.7;
+          }
+          .theme-switcher {
+            background: rgba(248,250,252,0.95);
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 20px rgba(8,145,178,0.08);
+          }
+          .theme-switcher label { color: #475569; }
+          .theme-switcher select {
+            background: white;
+            border: 1px solid #e2e8f0;
+            color: #1f2937;
+          }
+          .theme-switcher select:hover { border-color: #0891B2; }
+          .sidebar-nav > ul > li > a { font-weight: 600; letter-spacing: -0.01em; }
+          .markdown-section { max-width: 860px; }
+          .markdown-section h1 { font-size: 2em; font-weight: 700; letter-spacing: -0.02em; margin-top: 0; }
+          .markdown-section h2 { font-size: 1.5em; font-weight: 600; letter-spacing: -0.01em; padding-bottom: 0.5em; border-bottom: 2px solid #e2e8f0; margin-top: 2em; }
+          .markdown-section h3 { font-size: 1.2em; font-weight: 600; color: #374151; }
+          .markdown-section p { line-height: 1.8; }
+          .markdown-section code { border-radius: 6px; font-size: 0.9em; padding: 0.2em 0.5em; }
+          .markdown-section pre { border-radius: 10px; box-shadow: 0 4px 24px rgba(0,0,0,0.15); }
+          .markdown-section pre code { font-size: 0.88em; line-height: 1.6; }
+          .markdown-section table { border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+          .markdown-section th { background: #f1f5f9; font-weight: 600; }
+          .markdown-section blockquote { border-radius: 0 10px 10px 0; padding: 1em 1.5em; margin: 1.5em 0; }
+          .markdown-section a { font-weight: 500; }
+        `
+      },
+
+      'dark': {
+        css: 'https://cdn.jsdelivr.net/npm/docsify-themeable@0/dist/css/theme-simple-dark.css',
+        custom: `
+          :root {
+            --base-background-color: #0d1117;
+            --base-color: #c9d1d9;
+            --theme-color: #58a6ff;
+            --theme-color-secondary: #79c0ff;
+            --text-color-base: #c9d1d9;
+            --heading-color: #f0f6fc;
+            --heading-h1-color: #58a6ff;
+            --heading-h2-color: #f0f6fc;
+            --link-color: #58a6ff;
+            --link-color--hover: #79c0ff;
+            --link-text-decoration: none;
+            --link-text-decoration--hover: underline;
+            --sidebar-background: #161b22;
+            --sidebar-border-color: #30363d;
+            --sidebar-border-width: 1px;
+            --sidebar-nav-link-color: #8b949e;
+            --sidebar-nav-link-color--active: #58a6ff;
+            --sidebar-nav-link-font-weight: 500;
+            --sidebar-nav-link-font-weight--active: 600;
+            --sidebar-name-color: #58a6ff;
+            --sidebar-name-font-weight: 700;
+            --code-font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            --code-inline-background: #21262d;
+            --code-inline-color: #79c0ff;
+            --code-block-background: #161b22;
+            --code-block-border-radius: 10px;
+            --code-block-padding: 1.2em 1.5em;
+            --blockquote-border-color: #58a6ff;
+            --blockquote-background: #161b22;
+            --table-row-even-background: #161b22;
+            --notice-tip-background: #161b22;
+            --base-font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            --heading-font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --base-font-size: 15px;
+            --base-line-height: 1.7;
+          }
+          .theme-switcher {
+            background: rgba(22,27,34,0.95);
+            border: 1px solid #30363d;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+          }
+          .theme-switcher label { color: #8b949e; }
+          .theme-switcher select {
+            background: #21262d;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+          }
+          .theme-switcher select:hover { border-color: #58a6ff; }
+          .sidebar-nav > ul > li > a { font-weight: 600; letter-spacing: -0.01em; }
+          .markdown-section { max-width: 860px; }
+          .markdown-section h1 { font-size: 2em; font-weight: 700; letter-spacing: -0.02em; margin-top: 0; }
+          .markdown-section h2 { font-size: 1.5em; font-weight: 600; letter-spacing: -0.01em; padding-bottom: 0.5em; border-bottom: 1px solid #30363d; margin-top: 2em; }
+          .markdown-section h3 { font-size: 1.2em; font-weight: 600; color: #e6edf3; }
+          .markdown-section p { line-height: 1.8; }
+          .markdown-section code { border-radius: 6px; font-size: 0.9em; padding: 0.2em 0.5em; border: 1px solid #30363d; }
+          .markdown-section pre { border-radius: 10px; border: 1px solid #30363d; }
+          .markdown-section pre code { font-size: 0.88em; line-height: 1.6; border: none; }
+          .markdown-section table { border-radius: 10px; overflow: hidden; border: 1px solid #30363d; }
+          .markdown-section th { background: #21262d; font-weight: 600; }
+          .markdown-section td { border-color: #30363d; }
+          .markdown-section blockquote { border-radius: 0 10px 10px 0; padding: 1em 1.5em; margin: 1.5em 0; border: 1px solid #30363d; border-left: 4px solid #58a6ff; }
+          .markdown-section a { font-weight: 500; }
+        `
+      },
+
+      'light': {
+        css: 'https://cdn.jsdelivr.net/npm/docsify-themeable@0/dist/css/theme-simple.css',
+        custom: `
+          :root {
+            --base-background-color: #ffffff;
+            --base-color: #24292f;
+            --theme-color: #2da44e;
+            --theme-color-secondary: #3fb950;
+            --text-color-base: #24292f;
+            --heading-color: #1f2328;
+            --heading-h1-color: #1f2328;
+            --heading-h2-color: #1f2328;
+            --link-color: #0969da;
+            --link-color--hover: #0550ae;
+            --link-text-decoration: none;
+            --link-text-decoration--hover: underline;
+            --sidebar-background: #f6f8fa;
+            --sidebar-border-color: #d0d7de;
+            --sidebar-border-width: 1px;
+            --sidebar-nav-link-color: #57606a;
+            --sidebar-nav-link-color--active: #2da44e;
+            --sidebar-nav-link-font-weight: 500;
+            --sidebar-nav-link-font-weight--active: 600;
+            --sidebar-name-color: #1f2328;
+            --sidebar-name-font-weight: 700;
+            --code-font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            --code-inline-background: #f6f8fa;
+            --code-inline-color: #cf222e;
+            --code-block-background: #24292f;
+            --code-block-border-radius: 8px;
+            --code-block-padding: 1em 1.2em;
+            --blockquote-border-color: #d0d7de;
+            --blockquote-background: #f6f8fa;
+            --table-row-even-background: #f6f8fa;
+            --base-font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            --heading-font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --base-font-size: 15px;
+            --base-line-height: 1.7;
+          }
+          .theme-switcher {
+            background: rgba(255,255,255,0.95);
+            border: 1px solid #d0d7de;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+          }
+          .theme-switcher label { color: #57606a; }
+          .theme-switcher select {
+            background: white;
+            border: 1px solid #d0d7de;
+            color: #24292f;
+          }
+          .theme-switcher select:hover { border-color: #2da44e; }
+          .sidebar-nav > ul > li > a { font-weight: 600; }
+          .markdown-section { max-width: 860px; }
+          .markdown-section h1 { font-size: 2em; font-weight: 600; margin-top: 0; padding-bottom: 0.3em; border-bottom: 1px solid #d0d7de; }
+          .markdown-section h2 { font-size: 1.5em; font-weight: 600; padding-bottom: 0.3em; border-bottom: 1px solid #d0d7de; margin-top: 1.5em; }
+          .markdown-section h3 { font-size: 1.25em; font-weight: 600; }
+          .markdown-section p { line-height: 1.7; }
+          .markdown-section code { border-radius: 6px; font-size: 0.85em; padding: 0.2em 0.4em; }
+          .markdown-section pre { border-radius: 8px; }
+          .markdown-section pre code { font-size: 0.85em; line-height: 1.5; }
+          .markdown-section table { border-radius: 8px; overflow: hidden; }
+          .markdown-section th { background: #f6f8fa; font-weight: 600; }
+          .markdown-section blockquote { border-radius: 0 8px 8px 0; padding: 1em 1.2em; }
+        `
+      }
+    };
+
+    function switchTheme(themeName) {
+      const theme = themes[themeName];
+      if (!theme) return;
+
+      document.getElementById('theme-link').href = theme.css;
+      document.getElementById('custom-theme').textContent = theme.custom;
+      localStorage.setItem('docsify-theme', themeName);
+    }
+
+    (function() {
+      const savedTheme = localStorage.getItem('docsify-theme') || 'teal';
+      document.getElementById('theme-select').value = savedTheme;
+      switchTheme(savedTheme);
+    })();
+
+    window.$docsify = {
+      name: 'PIJS Node Guide',
+      repo: '',
+      loadSidebar: true,
+      subMaxLevel: 3,
+      auto2top: true,
+      search: {
+        placeholder: 'Search',
+        noData: 'No results',
+        paths: 'auto'
+      },
+      alias: {
+        '/zh/.*/_sidebar.md': '/zh/_sidebar.md',
+        '/en/.*/_sidebar.md': '/en/_sidebar.md',
+        '/_sidebar.md': '/_sidebar.md'
+      },
+      fallbackLanguages: ['zh', 'en'],
+      notFoundPage: true,
+      markdown: {
+        slugify: function(text) {
+          return text
+            .toString()
+            .trim()
+            .toLowerCase()
+            .replace(/\s+/g, '-')
+            .replace(/[：:]/g, '')
+            .replace(/[（()）]/g, '')
+            .replace(/[【】\[\]]/g, '')
+            .replace(/[？?]/g, '')
+            .replace(/[，,]/g, '')
+            .replace(/[。.]/g, '')
+            .replace(/[、]/g, '')
+            .replace(/[""'']/g, '')
+            .replace(/--+/g, '-')
+            .replace(/^-+/, '')
+            .replace(/-+$/, '');
+        }
+      }
+    }
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/docsify@4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/docsify@4/lib/plugins/search.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-bash.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-powershell.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-ini.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-json.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-javascript.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/docsify-copy-code@2"></script>
+</body>
+</html>
