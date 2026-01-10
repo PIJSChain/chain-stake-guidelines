@@ -21,8 +21,8 @@
 | 资源 | 下载地址 |
 |------|---------|
 | 节点程序 | https://github.com/PIJSChain/pijs/releases/tag/v1.25.6h |
-| 创世配置 | https://[CONFIG_HOST]/genesis.json |
-| 引导节点 | 见下方 [引导节点用户手册/共识节点部署指南/README.md配置](#引导节点配置) |
+| 创世配置 | https://github.com/PIJSChain/pijs/releases/download/v1.25.6h/genesis.json |
+| 引导节点 | https://github.com/PIJSChain/pijs/releases/download/v1.25.6h/bootnodes.txt |
 
 ---
 
@@ -180,24 +180,25 @@ bootnode --help
 
 ```bash
 # Linux/macOS
-curl -LO https://[CONFIG_HOST]/genesis.json
+curl -LO https://github.com/PIJSChain/pijs/releases/download/v1.25.6h/genesis.json
 
 # Windows PowerShell
-Invoke-WebRequest -Uri "https://[CONFIG_HOST]/genesis.json" -OutFile "genesis.json"
+Invoke-WebRequest -Uri "https://github.com/PIJSChain/pijs/releases/download/v1.25.6h/genesis.json" -OutFile "genesis.json"
 ```
-
-> 请从官方渠道获取 `genesis.json` 文件
 
 #### 1.3 获取引导节点地址
 
 引导节点用于连接到 PIJS 网络：
 
-```text
-enode://[BOOTNODE_ENODE_1]@[BOOTNODE_IP_1]:30303
-enode://[BOOTNODE_ENODE_2]@[BOOTNODE_IP_2]:30303
-```
+```bash
+# 下载引导节点列表
+curl -LO https://github.com/PIJSChain/pijs/releases/download/v1.25.6h/bootnodes.txt
 
-> 请从官方渠道获取最新的引导节点地址
+# 或直接使用以下地址：
+enode://6f05512feacca0b15cd94ed2165e8f96b16cf346cb16ba7810a37bea05851b3887ee8ef3ee790090cb3352f37a710bcd035d6b0bfd8961287751532c2b0717fb@54.169.152.20:30303
+enode://2d2370d19648032a525287645a38b6f1a87199e282cf9a99ebc25f3387e79780695b6c517bd8180be4e9b6b93c39502185960203c35d1ea067924f40e0fd50f1@104.16.132.181:30303
+enode://3fb2f819279b92f256718081af1c26bb94c4056f9938f8f1897666f1612ad478e2d84fc56428d20f99201d958951bde4c3f732d27c52d0c5138d9174e744e115@52.76.128.119:30303
+```
 
 ---
 
@@ -332,7 +333,7 @@ geth \
   --hybrid.blskey ./bls-keystore.json \
   --hybrid.blspassword ./password.txt \
   --nat "extip:203.0.113.100" \
-  --bootnodes "enode://[BOOTNODE_ENODE_1],enode://[BOOTNODE_ENODE_2]" \
+  --bootnodes "enode://6f05512feacca0b15cd94ed2165e8f96b16cf346cb16ba7810a37bea05851b3887ee8ef3ee790090cb3352f37a710bcd035d6b0bfd8961287751532c2b0717fb@54.169.152.20:30303,enode://2d2370d19648032a525287645a38b6f1a87199e282cf9a99ebc25f3387e79780695b6c517bd8180be4e9b6b93c39502185960203c35d1ea067924f40e0fd50f1@104.16.132.181:30303,enode://3fb2f819279b92f256718081af1c26bb94c4056f9938f8f1897666f1612ad478e2d84fc56428d20f99201d958951bde4c3f732d27c52d0c5138d9174e744e115@52.76.128.119:30303" \
   --log.file ./logs/geth.log \
   --log.maxsize 100 \
   --log.maxbackups 10 \

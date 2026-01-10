@@ -10,8 +10,8 @@ set -e
 # 下载地址
 GITHUB_RELEASE="https://github.com/PIJSChain/pijs/releases/download/v1.25.6h"
 GETH_VERSION="v1.25.6h"
-GENESIS_URL="https://[CONFIG_HOST]/genesis.json"
-BOOTNODE_URL="https://[CONFIG_HOST]/bootnodes.txt"
+GENESIS_URL="https://github.com/PIJSChain/pijs/releases/download/v1.25.6h/genesis.json"
+BOOTNODE_URL="https://github.com/PIJSChain/pijs/releases/download/v1.25.6h/bootnodes.txt"
 
 # 链配置
 CHAIN_ID="20250521"
