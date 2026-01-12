@@ -72,7 +72,7 @@ We provide automated scripts for environment configuration, key generation, and 
 
 ```bash
 # Download deployment script
-curl -LO https://[DOWNLOAD_HOST]/deploy/setup-node-testnet.sh
+curl -LO https://raw.githubusercontent.com/PIJSChain/chain-stake-guidelines/main/en/scripts/setup-node-testnet.sh
 
 # Add execute permission
 chmod +x setup-node-testnet.sh
@@ -85,7 +85,7 @@ chmod +x setup-node-testnet.sh
 
 ```powershell
 # Download deployment script
-Invoke-WebRequest -Uri "https://[DOWNLOAD_HOST]/deploy/setup-node-testnet.ps1" -OutFile "setup-node-testnet.ps1"
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/PIJSChain/chain-stake-guidelines/main/en/scripts/setup-node-testnet.ps1" -OutFile "setup-node-testnet.ps1"
 
 # Allow script execution (first time only)
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser

@@ -72,7 +72,7 @@
 
 ```bash
 # 下载一键部署脚本
-curl -LO https://[DOWNLOAD_HOST]/deploy/setup-node-testnet.sh
+curl -LO https://raw.githubusercontent.com/PIJSChain/chain-stake-guidelines/main/zh/scripts/setup-node-testnet.sh
 
 # 添加执行权限
 chmod +x setup-node-testnet.sh
@@ -85,7 +85,7 @@ chmod +x setup-node-testnet.sh
 
 ```powershell
 # 下载一键部署脚本
-Invoke-WebRequest -Uri "https://[DOWNLOAD_HOST]/deploy/setup-node-testnet.ps1" -OutFile "setup-node-testnet.ps1"
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/PIJSChain/chain-stake-guidelines/main/zh/scripts/setup-node-testnet.ps1" -OutFile "setup-node-testnet.ps1"
 
 # 允许脚本执行（首次需要）
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
