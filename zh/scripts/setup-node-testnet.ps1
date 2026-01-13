@@ -234,21 +234,31 @@ function Get-GenesisConfig {
         }
     }
 
-    Write-Host ""
-    Write-Warn "自动下载暂不可用，请手动下载 genesis.json"
+    Write-Info "正在下载 genesis.json..."
     Write-Info "下载地址: $GENESIS_URL"
-    Write-Info "保存到: $genesisPath"
-    Write-Host ""
 
-    $genesisReady = Read-Host "genesis.json 是否已准备好? (y/n)"
-    if ($genesisReady -notmatch "^[Yy]$") {
-        Write-Error-Custom "请先下载 genesis.json 后再运行此脚本"
-        exit 1
-    }
+    # 尝试自动下载
+    try {
+        Invoke-WebRequest -Uri $GENESIS_URL -OutFile $genesisPath -UseBasicParsing
+        Write-Success "genesis.json 下载完成"
+    } catch {
+        # 下载失败，提示手动下载
+        Write-Host ""
+        Write-Warn "自动下载失败，请手动下载 genesis.json"
+        Write-Info "下载地址: $GENESIS_URL"
+        Write-Info "保存到: $genesisPath"
+        Write-Host ""
 
-    if (-not (Test-Path $genesisPath)) {
-        Write-Error-Custom "genesis.json 文件不存在"
-        exit 1
+        $genesisReady = Read-Host "genesis.json 是否已准备好? (y/n)"
+        if ($genesisReady -notmatch "^[Yy]$") {
+            Write-Error-Custom "请先下载 genesis.json 后再运行此脚本"
+            exit 1
+        }
+
+        if (-not (Test-Path $genesisPath)) {
+            Write-Error-Custom "genesis.json 文件不存在"
+            exit 1
+        }
     }
 
     Write-Success "创世配置就绪"
@@ -437,17 +447,31 @@ function Set-WithdrawalAddress {
 function Get-Bootnodes {
     Write-Step 9 "配置引导节点"
 
-    $defaultBootnodes = "enode://[BOOTNODE_ENODE_1]@[BOOTNODE_IP_1]:30303,enode://[BOOTNODE_ENODE_2]@[BOOTNODE_IP_2]:30303"
+    # 默认引导节点
+    $defaultBootnodes = "enode://6f05512feacca0b15cd94ed2165e8f96b16cf346cb16ba7810a37bea05851b3887ee8ef3ee790090cb3352f37a710bcd035d6b0bfd8961287751532c2b0717fb@54.169.152.20:30303,enode://2d2370d19648032a525287645a38b6f1a87199e282cf9a99ebc25f3387e79780695b6c517bd8180be4e9b6b93c39502185960203c35d1ea067924f40e0fd50f1@104.16.132.181:30303,enode://3fb2f819279b92f256718081af1c26bb94c4056f9938f8f1897666f1612ad478e2d84fc56428d20f99201d958951bde4c3f732d27c52d0c5138d9174e744e115@52.76.128.119:30303"
 
     Write-Host ""
     Write-Info "引导节点用于连接到 PIJS 网络"
     Write-Host ""
 
-    $bootnodes = Read-Host "请输入引导节点地址 (多个用逗号分隔) [回车使用默认]"
-    if ([string]::IsNullOrWhiteSpace($bootnodes)) {
+    # 尝试下载 bootnodes.txt
+    Write-Info "正在获取引导节点列表..."
+    $bootnodesPath = Join-Path $INSTALL_DIR "bootnodes.txt"
+
+    try {
+        Invoke-WebRequest -Uri $BOOTNODE_URL -OutFile $bootnodesPath -UseBasicParsing
+        # 读取 bootnodes.txt 并合并为逗号分隔的字符串
+        $bootnodesContent = Get-Content $bootnodesPath | Where-Object { $_ -notmatch "^#" -and $_ -ne "" }
+        if ($bootnodesContent) {
+            $script:BOOTNODES = ($bootnodesContent -join ",")
+            Write-Success "已从 bootnodes.txt 获取引导节点"
+        } else {
+            $script:BOOTNODES = $defaultBootnodes
+            Write-Info "使用默认引导节点"
+        }
+    } catch {
         $script:BOOTNODES = $defaultBootnodes
-    } else {
-        $script:BOOTNODES = $bootnodes
+        Write-Info "使用默认引导节点"
     }
 
     Write-Success "引导节点已配置"
