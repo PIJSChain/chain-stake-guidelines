@@ -1,64 +1,64 @@
 #!/bin/bash
 # ============================================================
-# PIJS 共识节点一键部署脚本
-# 支持: Linux (x86_64/ARM64), macOS (Intel/Apple Silicon)
+# PIJS Consensus Node One-Click Deployment Script
+# Supports: Linux (x86_64/ARM64), macOS (Intel/Apple Silicon)
 # ============================================================
 
 set -e
 
-# ==================== 配置区域 ====================
-# 下载地址
+# ==================== Configuration ====================
+# Download URLs
 GITHUB_RELEASE="https://github.com/PIJSChain/pijs/releases/download/v1.25.6h"
 GETH_VERSION="v1.25.6h"
 GENESIS_URL="https://github.com/PIJSChain/pijs/releases/download/v1.25.6h/genesis.json"
 BOOTNODE_URL="https://github.com/PIJSChain/pijs/releases/download/v1.25.6h/bootnodes.txt"
 
-# 链配置
+# Chain configuration
 CHAIN_ID="20250521"
 NETWORK_NAME="PIJS Testnet"
 
-# 默认目录
+# Default directory
 DEFAULT_INSTALL_DIR="$HOME/pijs-node"
 
-# 颜色定义
+# Color definitions
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# ==================== 工具函数 ====================
+# ==================== Utility Functions ====================
 
 print_banner() {
     echo -e "${BLUE}"
     echo "============================================================"
-    echo "        PIJS 共识节点一键部署脚本"
+    echo "    PIJS Consensus Node One-Click Deployment Script"
     echo "============================================================"
     echo -e "${NC}"
 }
 
 print_step() {
-    echo -e "\n${GREEN}[步骤 $1]${NC} $2"
+    echo -e "\n${GREEN}[Step $1]${NC} $2"
     echo "------------------------------------------------------------"
 }
 
 print_info() {
-    echo -e "${BLUE}[信息]${NC} $1"
+    echo -e "${BLUE}[INFO]${NC} $1"
 }
 
 print_warn() {
-    echo -e "${YELLOW}[警告]${NC} $1"
+    echo -e "${YELLOW}[WARN]${NC} $1"
 }
 
 print_error() {
-    echo -e "${RED}[错误]${NC} $1"
+    echo -e "${RED}[ERROR]${NC} $1"
 }
 
 print_success() {
-    echo -e "${GREEN}[成功]${NC} $1"
+    echo -e "${GREEN}[OK]${NC} $1"
 }
 
-# 检测操作系统和架构
+# Detect OS and architecture
 detect_platform() {
     OS=$(uname -s | tr '[:upper:]' '[:lower:]')
     ARCH=$(uname -m)
@@ -71,7 +71,7 @@ detect_platform() {
             OS="darwin"
             ;;
         *)
-            print_error "不支持的操作系统: $OS"
+            print_error "Unsupported operating system: $OS"
             exit 1
             ;;
     esac
@@ -84,16 +84,16 @@ detect_platform() {
             ARCH="arm64"
             ;;
         *)
-            print_error "不支持的架构: $ARCH"
+            print_error "Unsupported architecture: $ARCH"
             exit 1
             ;;
     esac
 
     PLATFORM="${OS}-${ARCH}"
-    print_info "检测到平台: $PLATFORM"
+    print_info "Detected platform: $PLATFORM"
 }
 
-# 检查命令是否存在
+# Check if command exists
 check_command() {
     if ! command -v "$1" &> /dev/null; then
         return 1
@@ -101,34 +101,34 @@ check_command() {
     return 0
 }
 
-# 检查依赖
+# Check dependencies
 check_dependencies() {
-    print_step "1" "检查系统依赖"
+    print_step "1" "Checking system dependencies"
 
     local missing_deps=()
 
-    # 检查 curl 或 wget
+    # Check curl or wget
     if ! check_command curl && ! check_command wget; then
-        missing_deps+=("curl 或 wget")
+        missing_deps+=("curl or wget")
     fi
 
-    # 检查 tar
+    # Check tar
     if ! check_command tar; then
         missing_deps+=("tar")
     fi
 
     if [ ${#missing_deps[@]} -gt 0 ]; then
-        print_error "缺少以下依赖，请先安装："
+        print_error "Missing dependencies, please install first:"
         for dep in "${missing_deps[@]}"; do
             echo "  - $dep"
         done
         exit 1
     fi
 
-    print_success "系统依赖检查通过"
+    print_success "System dependencies check passed"
 }
 
-# 下载文件
+# Download file
 download_file() {
     local url="$1"
     local output="$2"
@@ -138,30 +138,30 @@ download_file() {
     elif check_command wget; then
         wget -q "$url" -O "$output"
     else
-        print_error "需要 curl 或 wget 来下载文件"
+        print_error "curl or wget required to download files"
         exit 1
     fi
 }
 
-# ==================== 安装流程 ====================
+# ==================== Installation Process ====================
 
-# 创建目录结构
+# Create directory structure
 setup_directories() {
-    print_step "2" "创建目录结构"
+    print_step "2" "Creating directory structure"
 
-    echo -e "请输入安装目录 [默认: ${DEFAULT_INSTALL_DIR}]: \c"
+    echo -e "Enter installation directory [default: ${DEFAULT_INSTALL_DIR}]: \c"
     read -r INSTALL_DIR
     INSTALL_DIR="${INSTALL_DIR:-$DEFAULT_INSTALL_DIR}"
 
-    # 展开 ~ 符号
+    # Expand ~ symbol
     INSTALL_DIR="${INSTALL_DIR/#\~/$HOME}"
 
     if [ -d "$INSTALL_DIR/data/PIJSChain/chaindata" ]; then
-        print_warn "检测到已存在的节点数据: $INSTALL_DIR/data"
-        echo -e "是否继续？这将保留现有数据 (y/n): \c"
+        print_warn "Existing node data detected: $INSTALL_DIR/data"
+        echo -e "Continue? This will preserve existing data (y/n): \c"
         read -r confirm
         if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
-            echo "已取消"
+            echo "Cancelled"
             exit 0
         fi
     fi
@@ -169,63 +169,63 @@ setup_directories() {
     mkdir -p "$INSTALL_DIR"/{data/PIJSChain,logs,keys}
     cd "$INSTALL_DIR"
 
-    print_success "目录创建完成: $INSTALL_DIR"
+    print_success "Directories created: $INSTALL_DIR"
 }
 
-# 下载 geth 二进制文件
+# Download geth binary
 download_geth() {
-    print_step "3" "下载节点程序"
+    print_step "3" "Downloading node program"
 
     local geth_tar="geth-${GETH_VERSION}-${PLATFORM}.tar.gz"
     local geth_url="${GITHUB_RELEASE}/${geth_tar}"
 
-    # 检查是否已安装
+    # Check if already installed
     if check_command geth; then
         local current_version=$(geth version 2>/dev/null | head -1 || echo "unknown")
-        print_info "检测到已安装的 geth: $current_version"
-        echo -e "是否重新下载最新版本? (y/n) [默认: n]: \c"
+        print_info "Detected installed geth: $current_version"
+        echo -e "Download latest version? (y/n) [default: n]: \c"
         read -r redownload
         if [[ ! "$redownload" =~ ^[Yy]$ ]]; then
-            print_info "跳过下载，使用现有版本"
+            print_info "Skipping download, using existing version"
             return
         fi
     fi
 
-    print_info "正在下载 geth ($PLATFORM)..."
-    print_info "下载地址: $geth_url"
+    print_info "Downloading geth ($PLATFORM)..."
+    print_info "URL: $geth_url"
 
-    # 下载文件
+    # Download file
     cd "$INSTALL_DIR"
     if [ -f "$geth_tar" ]; then
-        print_info "发现已下载的文件，跳过下载"
+        print_info "Found downloaded file, skipping download"
     else
         download_file "$geth_url" "$geth_tar"
     fi
 
-    # 解压
-    print_info "解压文件..."
+    # Extract
+    print_info "Extracting files..."
     tar -xzf "$geth_tar"
 
-    # 创建 bin 目录并移动二进制文件
+    # Create bin directory and move binaries
     mkdir -p "$INSTALL_DIR/bin"
 
-    # 移动所有二进制文件到 bin 目录
+    # Move all binaries to bin directory
     for binary in geth bootnode abigen clef evm rlpdump; do
         if [ -f "$binary" ]; then
             mv "$binary" "$INSTALL_DIR/bin/"
             chmod +x "$INSTALL_DIR/bin/$binary"
-            print_info "已安装: $binary"
+            print_info "Installed: $binary"
         fi
     done
 
-    # 清理压缩包
+    # Clean up archive
     rm -f "$geth_tar"
 
-    # 添加到 PATH
-    print_info "配置环境变量..."
+    # Add to PATH
+    print_info "Configuring environment variables..."
     export PATH="$INSTALL_DIR/bin:$PATH"
 
-    # 添加到 shell 配置文件
+    # Add to shell config file
     local shell_rc=""
     if [ -f "$HOME/.zshrc" ]; then
         shell_rc="$HOME/.zshrc"
@@ -236,21 +236,21 @@ download_geth() {
     fi
 
     if [ -n "$shell_rc" ]; then
-        # 检查是否已经添加过
+        # Check if already added
         if ! grep -q "pijs-node/bin" "$shell_rc" 2>/dev/null; then
             echo "" >> "$shell_rc"
             echo "# PIJS Node" >> "$shell_rc"
             echo "export PATH=\"$INSTALL_DIR/bin:\$PATH\"" >> "$shell_rc"
-            print_info "已添加到 $shell_rc"
+            print_info "Added to $shell_rc"
         fi
     fi
 
-    # 复制到系统路径
-    echo -e "是否将 geth 和 bootnode 复制到 /usr/local/bin? (y/n) [默认: y]: \c"
+    # Copy to system path
+    echo -e "Copy geth and bootnode to /usr/local/bin? (y/n) [default: y]: \c"
     read -r copy_to_system
     if [[ ! "$copy_to_system" =~ ^[Nn]$ ]]; then
         if [ -w "/usr/local/bin" ] || command -v sudo &> /dev/null; then
-            print_info "复制二进制文件到 /usr/local/bin/..."
+            print_info "Copying binaries to /usr/local/bin/..."
             if [ -w "/usr/local/bin" ]; then
                 cp "$INSTALL_DIR/bin/geth" /usr/local/bin/
                 cp "$INSTALL_DIR/bin/bootnode" /usr/local/bin/
@@ -258,302 +258,302 @@ download_geth() {
                 sudo cp "$INSTALL_DIR/bin/geth" /usr/local/bin/
                 sudo cp "$INSTALL_DIR/bin/bootnode" /usr/local/bin/
             fi
-            print_success "已复制到 /usr/local/bin/"
+            print_success "Copied to /usr/local/bin/"
         else
-            print_warn "无法写入 /usr/local/bin/，请手动复制或使用 sudo 权限"
+            print_warn "Cannot write to /usr/local/bin/, please copy manually or use sudo"
         fi
     fi
 
-    # 验证安装
+    # Verify installation
     if [ -f "$INSTALL_DIR/bin/geth" ]; then
         "$INSTALL_DIR/bin/geth" version
-        print_success "节点程序安装完成"
-        print_info "二进制文件位置: $INSTALL_DIR/bin/"
+        print_success "Node program installation complete"
+        print_info "Binary location: $INSTALL_DIR/bin/"
     else
-        print_error "geth 安装失败"
+        print_error "geth installation failed"
         exit 1
     fi
 }
 
-# 下载 genesis.json
+# Download genesis.json
 download_genesis() {
-    print_step "4" "下载创世配置"
+    print_step "4" "Downloading genesis configuration"
 
     if [ -f "genesis.json" ]; then
-        print_info "检测到已存在的 genesis.json"
-        echo -e "是否重新下载? (y/n) [默认: n]: \c"
+        print_info "Existing genesis.json detected"
+        echo -e "Re-download? (y/n) [default: n]: \c"
         read -r redownload
         if [[ ! "$redownload" =~ ^[Yy]$ ]]; then
-            print_info "跳过下载，使用现有配置"
+            print_info "Skipping download, using existing configuration"
             return
         fi
     fi
 
-    print_info "正在下载 genesis.json..."
-    print_info "下载地址: $GENESIS_URL"
+    print_info "Downloading genesis.json..."
+    print_info "URL: $GENESIS_URL"
 
-    # 尝试自动下载
+    # Try auto download
     if download_file "$GENESIS_URL" "genesis.json"; then
-        print_success "genesis.json 下载完成"
+        print_success "genesis.json download complete"
     else
-        # 下载失败，提示手动下载
+        # Download failed, prompt for manual download
         echo ""
-        print_warn "自动下载失败，请手动下载 genesis.json"
-        print_info "下载地址: $GENESIS_URL"
-        print_info "保存到: $INSTALL_DIR/genesis.json"
+        print_warn "Auto download failed, please download genesis.json manually"
+        print_info "URL: $GENESIS_URL"
+        print_info "Save to: $INSTALL_DIR/genesis.json"
         echo ""
-        echo -e "genesis.json 是否已准备好? (y/n): \c"
+        echo -e "Is genesis.json ready? (y/n): \c"
         read -r genesis_ready
         if [[ ! "$genesis_ready" =~ ^[Yy]$ ]]; then
-            print_error "请先下载 genesis.json 后再运行此脚本"
+            print_error "Please download genesis.json before running this script"
             exit 1
         fi
 
         if [ ! -f "genesis.json" ]; then
-            print_error "genesis.json 文件不存在"
+            print_error "genesis.json file does not exist"
             exit 1
         fi
     fi
 
-    print_success "创世配置就绪"
+    print_success "Genesis configuration ready"
 }
 
-# 生成 nodekey（固定节点身份）
+# Generate nodekey (fixed node identity)
 generate_nodekey() {
-    print_step "5" "生成节点身份 (nodekey)"
+    print_step "5" "Generating node identity (nodekey)"
 
     local nodekey_file="$INSTALL_DIR/data/PIJSChain/nodekey"
 
-    # 确保目录存在
+    # Ensure directory exists
     mkdir -p "$INSTALL_DIR/data/PIJSChain"
 
     if [ -f "$nodekey_file" ]; then
-        print_info "检测到已存在的 nodekey"
-        echo -e "是否保留现有 nodekey? (y/n) [默认: y]: \c"
+        print_info "Existing nodekey detected"
+        echo -e "Keep existing nodekey? (y/n) [default: y]: \c"
         read -r keep_nodekey
         if [[ "$keep_nodekey" =~ ^[Nn]$ ]]; then
             rm -f "$nodekey_file"
         else
-            print_info "保留现有 nodekey"
-            # 显示现有 enode 地址
+            print_info "Keeping existing nodekey"
+            # Show existing enode address
             if [ -f "$INSTALL_DIR/bin/bootnode" ]; then
                 local enode_addr=$("$INSTALL_DIR/bin/bootnode" -nodekey "$nodekey_file" -writeaddress 2>/dev/null)
                 if [ -n "$enode_addr" ]; then
-                    print_info "节点 ID: $enode_addr"
+                    print_info "Node ID: $enode_addr"
                 fi
             fi
             return
         fi
     fi
 
-    print_info "生成新的 nodekey..."
+    print_info "Generating new nodekey..."
 
-    # 优先使用 bootnode 工具生成
+    # Prefer bootnode tool for generation
     if [ -f "$INSTALL_DIR/bin/bootnode" ]; then
         "$INSTALL_DIR/bin/bootnode" -genkey "$nodekey_file"
-        print_success "nodekey 已生成 (使用 bootnode)"
-        # 显示 enode 地址
+        print_success "nodekey generated (using bootnode)"
+        # Show enode address
         local enode_addr=$("$INSTALL_DIR/bin/bootnode" -nodekey "$nodekey_file" -writeaddress 2>/dev/null)
         if [ -n "$enode_addr" ]; then
-            print_info "节点 ID: $enode_addr"
+            print_info "Node ID: $enode_addr"
         fi
     elif check_command bootnode; then
         bootnode -genkey "$nodekey_file"
-        print_success "nodekey 已生成 (使用 bootnode)"
+        print_success "nodekey generated (using bootnode)"
     elif check_command openssl; then
-        # 备用方案：使用 openssl 生成 32 字节随机数
+        # Fallback: use openssl to generate 32-byte random
         openssl rand -hex 32 > "$nodekey_file"
-        print_success "nodekey 已生成 (使用 openssl)"
+        print_success "nodekey generated (using openssl)"
     else
-        # 最后方案：使用 /dev/urandom
+        # Last resort: use /dev/urandom
         head -c 32 /dev/urandom | xxd -p -c 64 > "$nodekey_file"
-        print_success "nodekey 已生成 (使用 urandom)"
+        print_success "nodekey generated (using urandom)"
     fi
 
     chmod 600 "$nodekey_file"
 
-    print_info "nodekey 位置: $nodekey_file"
-    print_warn "请妥善备份此文件，它决定了您的节点身份"
+    print_info "nodekey location: $nodekey_file"
+    print_warn "Please backup this file securely, it determines your node identity"
 }
 
-# 生成 BLS 密钥
+# Generate BLS key
 generate_bls_key() {
-    print_step "6" "生成 BLS 密钥"
+    print_step "6" "Generating BLS key"
 
     local bls_keyfile="$INSTALL_DIR/keys/bls-keystore.json"
     local bls_password="$INSTALL_DIR/keys/password.txt"
 
     if [ -f "$bls_keyfile" ]; then
-        print_info "检测到已存在的 BLS 密钥"
-        echo -e "是否保留现有 BLS 密钥? (y/n) [默认: y]: \c"
+        print_info "Existing BLS key detected"
+        echo -e "Keep existing BLS key? (y/n) [default: y]: \c"
         read -r keep_bls
         if [[ "$keep_bls" =~ ^[Nn]$ ]]; then
             rm -f "$bls_keyfile" "$bls_password"
         else
-            print_info "保留现有 BLS 密钥"
+            print_info "Keeping existing BLS key"
             return
         fi
     fi
 
     echo ""
-    print_info "即将生成 BLS 密钥，请设置一个强密码"
-    print_warn "此密码用于加密您的 BLS 私钥，请务必牢记！"
+    print_info "About to generate BLS key, please set a strong password"
+    print_warn "This password encrypts your BLS private key, remember it!"
     echo ""
 
-    # 获取密码
+    # Get password
     while true; do
-        echo -e "请输入 BLS 密钥密码: \c"
+        echo -e "Enter BLS key password: \c"
         read -rs bls_pwd
         echo ""
-        echo -e "请再次输入密码确认: \c"
+        echo -e "Confirm password: \c"
         read -rs bls_pwd_confirm
         echo ""
 
         if [ "$bls_pwd" != "$bls_pwd_confirm" ]; then
-            print_error "两次输入的密码不一致，请重试"
+            print_error "Passwords do not match, please try again"
             continue
         fi
 
         if [ ${#bls_pwd} -lt 8 ]; then
-            print_error "密码长度至少需要 8 个字符"
+            print_error "Password must be at least 8 characters"
             continue
         fi
 
         break
     done
 
-    # 保存密码到文件
+    # Save password to file
     echo "$bls_pwd" > "$bls_password"
     chmod 600 "$bls_password"
 
-    # 生成 BLS 密钥
-    print_info "正在生成 BLS 密钥..."
+    # Generate BLS key
+    print_info "Generating BLS key..."
 
-    # 使用 expect 或直接调用（根据 geth 实现）
+    # Use expect or direct call (depending on geth implementation)
     echo "$bls_pwd" | geth hybrid bls generate --save "$bls_keyfile" --password "$bls_password" 2>/dev/null || \
     geth hybrid bls generate --save "$bls_keyfile" --password "$bls_password"
 
     if [ ! -f "$bls_keyfile" ]; then
-        print_error "BLS 密钥生成失败"
+        print_error "BLS key generation failed"
         exit 1
     fi
 
     chmod 600 "$bls_keyfile"
 
-    # 显示公钥
+    # Show public key
     echo ""
-    print_success "BLS 密钥生成成功"
-    print_info "密钥文件: $bls_keyfile"
-    print_info "密码文件: $bls_password"
+    print_success "BLS key generated successfully"
+    print_info "Key file: $bls_keyfile"
+    print_info "Password file: $bls_password"
     echo ""
-    print_info "您的 BLS 公钥:"
+    print_info "Your BLS public key:"
     geth hybrid bls show --keyfile "$bls_keyfile" --password "$bls_password" 2>/dev/null | grep "Public Key" || \
     geth hybrid bls show --keyfile "$bls_keyfile" --password "$bls_password"
     echo ""
-    print_warn "请妥善备份 BLS 密钥文件和密码，丢失后无法恢复！"
+    print_warn "Please backup BLS key file and password securely, cannot be recovered if lost!"
 }
 
-# 初始化区块链数据
+# Initialize blockchain data
 init_blockchain() {
-    print_step "7" "初始化区块链数据"
+    print_step "7" "Initializing blockchain data"
 
     local chaindata="$INSTALL_DIR/data/PIJSChain/chaindata"
 
     if [ -d "$chaindata" ] && [ "$(ls -A $chaindata 2>/dev/null)" ]; then
-        print_info "检测到已初始化的区块链数据"
-        echo -e "是否跳过初始化? (y/n) [默认: y]: \c"
+        print_info "Existing blockchain data detected"
+        echo -e "Skip initialization? (y/n) [default: y]: \c"
         read -r skip_init
         if [[ ! "$skip_init" =~ ^[Nn]$ ]]; then
-            print_info "跳过初始化"
+            print_info "Skipping initialization"
             return
         fi
-        print_warn "重新初始化将删除现有数据！"
-        echo -e "确认删除并重新初始化? (yes/no): \c"
+        print_warn "Re-initialization will delete existing data!"
+        echo -e "Confirm delete and re-initialize? (yes/no): \c"
         read -r confirm_delete
         if [ "$confirm_delete" != "yes" ]; then
-            print_info "取消重新初始化"
+            print_info "Cancelled re-initialization"
             return
         fi
         rm -rf "$INSTALL_DIR/data/PIJSChain/chaindata" "$INSTALL_DIR/data/PIJSChain/lightchaindata"
     fi
 
-    print_info "正在初始化区块链数据..."
+    print_info "Initializing blockchain data..."
     geth init --datadir "$INSTALL_DIR/data" "$INSTALL_DIR/genesis.json"
 
-    print_success "区块链数据初始化完成"
+    print_success "Blockchain data initialization complete"
 }
 
-# 配置提款地址
+# Configure withdrawal address
 configure_withdrawal() {
-    print_step "8" "配置提款地址"
+    print_step "8" "Configuring withdrawal address"
 
     echo ""
-    print_info "提款地址用于接收您的质押奖励"
-    print_warn "请确保您完全控制此地址的私钥"
+    print_info "Withdrawal address receives your staking rewards"
+    print_warn "Ensure you have full control of this address's private key"
     echo ""
 
     while true; do
-        echo -e "请输入您的提款地址 (0x 开头): \c"
+        echo -e "Enter your withdrawal address (starting with 0x): \c"
         read -r WITHDRAWAL_ADDRESS
 
-        # 验证地址格式
+        # Validate address format
         if [[ ! "$WITHDRAWAL_ADDRESS" =~ ^0x[a-fA-F0-9]{40}$ ]]; then
-            print_error "地址格式不正确，请输入有效的以太坊地址"
+            print_error "Invalid address format, please enter a valid Ethereum address"
             continue
         fi
 
-        echo -e "确认提款地址: $WITHDRAWAL_ADDRESS (y/n): \c"
+        echo -e "Confirm withdrawal address: $WITHDRAWAL_ADDRESS (y/n): \c"
         read -r confirm
         if [[ "$confirm" =~ ^[Yy]$ ]]; then
             break
         fi
     done
 
-    print_success "提款地址已配置: $WITHDRAWAL_ADDRESS"
+    print_success "Withdrawal address configured: $WITHDRAWAL_ADDRESS"
 }
 
-# 获取引导节点
+# Get boot nodes
 get_bootnodes() {
-    print_step "9" "配置引导节点"
+    print_step "9" "Configuring boot nodes"
 
-    # 默认引导节点
+    # Default boot nodes
     DEFAULT_BOOTNODES="enode://6f05512feacca0b15cd94ed2165e8f96b16cf346cb16ba7810a37bea05851b3887ee8ef3ee790090cb3352f37a710bcd035d6b0bfd8961287751532c2b0717fb@54.169.152.20:30303,enode://2d2370d19648032a525287645a38b6f1a87199e282cf9a99ebc25f3387e79780695b6c517bd8180be4e9b6b93c39502185960203c35d1ea067924f40e0fd50f1@104.16.132.181:30303,enode://3fb2f819279b92f256718081af1c26bb94c4056f9938f8f1897666f1612ad478e2d84fc56428d20f99201d958951bde4c3f732d27c52d0c5138d9174e744e115@52.76.128.119:30303"
 
     echo ""
-    print_info "引导节点用于连接到 PIJS 网络"
+    print_info "Boot nodes are used to connect to the PIJS network"
     echo ""
 
-    # 尝试下载 bootnodes.txt
-    print_info "正在获取引导节点列表..."
+    # Try to download bootnodes.txt
+    print_info "Fetching boot node list..."
     if download_file "$BOOTNODE_URL" "bootnodes.txt" 2>/dev/null; then
-        # 读取 bootnodes.txt 并合并为逗号分隔的字符串
+        # Read bootnodes.txt and merge into comma-separated string
         BOOTNODES=$(cat bootnodes.txt | grep -v "^#" | grep -v "^$" | tr '\n' ',' | sed 's/,$//')
         if [ -n "$BOOTNODES" ]; then
-            print_success "已从 bootnodes.txt 获取引导节点"
+            print_success "Boot nodes fetched from bootnodes.txt"
         else
             BOOTNODES="$DEFAULT_BOOTNODES"
-            print_info "使用默认引导节点"
+            print_info "Using default boot nodes"
         fi
     else
         BOOTNODES="$DEFAULT_BOOTNODES"
-        print_info "使用默认引导节点"
+        print_info "Using default boot nodes"
     fi
 
-    print_success "引导节点已配置"
+    print_success "Boot nodes configured"
 }
 
-# 生成启动脚本
+# Generate startup script
 generate_start_script() {
-    print_step "10" "生成启动脚本"
+    print_step "10" "Generating startup scripts"
 
     local start_script="$INSTALL_DIR/start-node.sh"
 
     cat > "$start_script" << EOF
 #!/bin/bash
-# PIJS 节点启动脚本
-# 生成时间: $(date)
+# PIJS Node Startup Script
+# Generated: $(date)
 
-# ==================== 配置 ====================
+# ==================== Configuration ====================
 INSTALL_DIR="$INSTALL_DIR"
 export PATH="\$INSTALL_DIR/bin:\$PATH"
 
@@ -563,71 +563,71 @@ BLS_PASSWORD="\$INSTALL_DIR/keys/password.txt"
 WITHDRAWAL_ADDRESS="$WITHDRAWAL_ADDRESS"
 BOOTNODES="$BOOTNODES"
 
-# 网络配置
+# Network configuration
 NETWORK_ID="$CHAIN_ID"
 HTTP_ADDR="0.0.0.0"
 HTTP_PORT="8545"
-# 安全警告：仅暴露安全的 API 模块！
-# 安全：eth,net,web3,hybrid
-# 危险（绝不可添加）：personal,admin,debug,miner
+# Security warning: Only expose safe API modules!
+# Safe: eth,net,web3,hybrid
+# Dangerous (never add): personal,admin,debug,miner
 HTTP_API="eth,net,web3,hybrid"
 WS_ADDR="0.0.0.0"
 WS_PORT="8546"
-# 安全警告：同 HTTP_API，不要添加 personal/admin/debug/miner
+# Security warning: Same as HTTP_API, do not add personal/admin/debug/miner
 WS_API="eth,net,web3,hybrid"
 
-# 性能配置
+# Performance configuration
 CACHE_SIZE="4096"
 
-# 日志配置
+# Log configuration
 LOG_DIR="\$INSTALL_DIR/logs"
 LOG_FILE="\$LOG_DIR/geth.log"
 LOG_MAXSIZE="100"
 LOG_MAXBACKUPS="10"
 
-# ==================== 启动检查 ====================
+# ==================== Startup Checks ====================
 echo "========================================"
-echo "  PIJS 共识节点启动"
+echo "  PIJS Consensus Node Starting"
 echo "========================================"
 
-# 检查必需文件
+# Check required files
 if [ ! -f "\$BLS_KEYFILE" ]; then
-    echo "错误: BLS 密钥文件不存在: \$BLS_KEYFILE"
+    echo "Error: BLS key file does not exist: \$BLS_KEYFILE"
     exit 1
 fi
 
 if [ ! -f "\$BLS_PASSWORD" ]; then
-    echo "错误: BLS 密码文件不存在: \$BLS_PASSWORD"
+    echo "Error: BLS password file does not exist: \$BLS_PASSWORD"
     exit 1
 fi
 
-# 创建日志目录
+# Create log directory
 mkdir -p "\$LOG_DIR"
 
-# 显示配置信息
+# Display configuration
 echo ""
-echo "配置信息:"
-echo "  数据目录: \$DATADIR"
-echo "  网络 ID: \$NETWORK_ID"
+echo "Configuration:"
+echo "  Data directory: \$DATADIR"
+echo "  Network ID: \$NETWORK_ID"
 echo "  HTTP RPC: http://\$HTTP_ADDR:\$HTTP_PORT"
 echo "  WebSocket: ws://\$WS_ADDR:\$WS_PORT"
-echo "  提款地址: \$WITHDRAWAL_ADDRESS"
-echo "  日志文件: \$LOG_FILE"
+echo "  Withdrawal address: \$WITHDRAWAL_ADDRESS"
+echo "  Log file: \$LOG_FILE"
 echo ""
 
-# 安全警告
+# Security warning
 if [ "\$HTTP_ADDR" == "0.0.0.0" ] || [ "\$WS_ADDR" == "0.0.0.0" ]; then
     echo "========================================"
-    echo "安全警告: RPC 接口对外暴露"
+    echo "Security Warning: RPC interface exposed externally"
     echo "========================================"
-    echo "建议配置防火墙限制访问 IP"
+    echo "Recommend configuring firewall to restrict access IPs"
     echo ""
 fi
 
-# ==================== 启动节点 ====================
-echo "正在启动节点..."
+# ==================== Start Node ====================
+echo "Starting node..."
 
-# 构建启动参数
+# Build startup arguments
 START_ARGS=(
     --datadir "\$DATADIR"
     --networkid "\$NETWORK_ID"
@@ -658,90 +658,90 @@ START_ARGS=(
     --nat "any"
 )
 
-# 启动 geth
+# Start geth
 exec geth "\${START_ARGS[@]}"
 EOF
 
     chmod +x "$start_script"
 
-    # 生成后台启动脚本
+    # Generate background startup script
     local start_bg_script="$INSTALL_DIR/start-node-bg.sh"
     cat > "$start_bg_script" << EOF
 #!/bin/bash
-# PIJS 节点后台启动脚本
+# PIJS Node Background Startup Script
 
 INSTALL_DIR="$INSTALL_DIR"
 LOG_FILE="\$INSTALL_DIR/logs/geth.log"
 
-echo "正在后台启动节点..."
+echo "Starting node in background..."
 nohup "\$INSTALL_DIR/start-node.sh" > /dev/null 2>&1 &
 
-echo "节点已在后台启动"
-echo "查看日志: tail -f \$LOG_FILE"
-echo "停止节点: pkill -f 'geth.*--datadir.*pijs-node'"
+echo "Node started in background"
+echo "View logs: tail -f \$LOG_FILE"
+echo "Stop node: pkill -f 'geth.*--datadir.*pijs-node'"
 EOF
 
     chmod +x "$start_bg_script"
 
-    # 生成停止脚本
+    # Generate stop script
     local stop_script="$INSTALL_DIR/stop-node.sh"
     cat > "$stop_script" << EOF
 #!/bin/bash
-# PIJS 节点停止脚本
+# PIJS Node Stop Script
 
-echo "正在停止节点..."
+echo "Stopping node..."
 pkill -f "geth.*--datadir.*$INSTALL_DIR"
 
 if [ \$? -eq 0 ]; then
-    echo "节点已停止"
+    echo "Node stopped"
 else
-    echo "未找到运行中的节点"
+    echo "No running node found"
 fi
 EOF
 
     chmod +x "$stop_script"
 
-    print_success "启动脚本已生成:"
-    echo "  - 前台启动: $start_script"
-    echo "  - 后台启动: $start_bg_script"
-    echo "  - 停止节点: $stop_script"
+    print_success "Startup scripts generated:"
+    echo "  - Foreground start: $start_script"
+    echo "  - Background start: $start_bg_script"
+    echo "  - Stop node: $stop_script"
 }
 
-# 显示完成信息
+# Show completion info
 show_completion() {
     echo ""
     echo -e "${GREEN}============================================================${NC}"
-    echo -e "${GREEN}        部署完成！${NC}"
+    echo -e "${GREEN}        Deployment Complete!${NC}"
     echo -e "${GREEN}============================================================${NC}"
     echo ""
-    echo -e "${BLUE}节点信息:${NC}"
-    echo "  安装目录: $INSTALL_DIR"
-    echo "  数据目录: $INSTALL_DIR/data"
-    echo "  BLS 密钥: $INSTALL_DIR/keys/bls-keystore.json"
-    echo "  提款地址: $WITHDRAWAL_ADDRESS"
+    echo -e "${BLUE}Node Information:${NC}"
+    echo "  Install directory: $INSTALL_DIR"
+    echo "  Data directory: $INSTALL_DIR/data"
+    echo "  BLS key: $INSTALL_DIR/keys/bls-keystore.json"
+    echo "  Withdrawal address: $WITHDRAWAL_ADDRESS"
     echo ""
-    echo -e "${BLUE}启动命令:${NC}"
-    echo "  前台启动: $INSTALL_DIR/start-node.sh"
-    echo "  后台启动: $INSTALL_DIR/start-node-bg.sh"
-    echo "  停止节点: $INSTALL_DIR/stop-node.sh"
+    echo -e "${BLUE}Startup Commands:${NC}"
+    echo "  Foreground start: $INSTALL_DIR/start-node.sh"
+    echo "  Background start: $INSTALL_DIR/start-node-bg.sh"
+    echo "  Stop node: $INSTALL_DIR/stop-node.sh"
     echo ""
-    echo -e "${BLUE}下一步操作:${NC}"
-    echo "  1. 启动节点: cd $INSTALL_DIR && ./start-node.sh"
-    echo "  2. 等待节点同步完成"
-    echo "  3. 生成质押签名: geth hybrid bls deposit --keyfile ./keys/bls-keystore.json \\"
+    echo -e "${BLUE}Next Steps:${NC}"
+    echo "  1. Start node: cd $INSTALL_DIR && ./start-node.sh"
+    echo "  2. Wait for node synchronization to complete"
+    echo "  3. Generate staking signature: geth hybrid bls deposit --keyfile ./keys/bls-keystore.json \\"
     echo "       --chainid $CHAIN_ID --address $WITHDRAWAL_ADDRESS --amount 10000 \\"
     echo "       --output deposit_data.json"
-    echo "  4. 访问质押平台，上传 deposit_data.json 完成质押"
+    echo "  4. Visit staking platform, upload deposit_data.json to complete staking"
     echo ""
-    echo -e "${YELLOW}重要提示:${NC}"
-    echo "  - 请妥善备份 $INSTALL_DIR/keys/ 目录下的密钥文件"
-    echo "  - 请妥善备份 $INSTALL_DIR/data/PIJSChain/nodekey 文件"
-    echo "  - 首次同步可能需要数小时到数天（归档模式）"
+    echo -e "${YELLOW}Important Notes:${NC}"
+    echo "  - Please backup key files in $INSTALL_DIR/keys/ directory securely"
+    echo "  - Please backup $INSTALL_DIR/data/PIJSChain/nodekey file"
+    echo "  - Initial sync may take hours to days (archive mode)"
     echo ""
     echo "============================================================"
 }
 
-# ==================== 主流程 ====================
+# ==================== Main Process ====================
 
 main() {
     print_banner
@@ -762,5 +762,5 @@ main() {
     show_completion
 }
 
-# 运行主流程
+# Run main process
 main "$@"

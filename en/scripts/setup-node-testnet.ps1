@@ -1,10 +1,10 @@
 # ============================================================
-# PIJS 共识节点一键部署脚本 (Windows PowerShell)
+# PIJS Consensus Node One-Click Deployment Script (Windows PowerShell)
 # ============================================================
 
 #Requires -Version 5.1
 
-# ==================== 配置区域 ====================
+# ==================== Configuration ====================
 $GITHUB_RELEASE = "https://github.com/PIJSChain/pijs/releases/download/v1.25.6h"
 $GETH_VERSION = "v1.25.6h"
 $GENESIS_URL = "https://github.com/PIJSChain/pijs/releases/download/v1.25.6h/genesis.json"
@@ -15,12 +15,12 @@ $NETWORK_NAME = "PIJS Testnet"
 
 $DEFAULT_INSTALL_DIR = "$env:USERPROFILE\pijs-node"
 
-# ==================== 工具函数 ====================
+# ==================== Utility Functions ====================
 
 function Write-Banner {
     Write-Host ""
     Write-Host "============================================================" -ForegroundColor Blue
-    Write-Host "        PIJS 共识节点一键部署脚本 (Windows)" -ForegroundColor Blue
+    Write-Host "    PIJS Consensus Node One-Click Deployment (Windows)" -ForegroundColor Blue
     Write-Host "============================================================" -ForegroundColor Blue
     Write-Host ""
 }
@@ -28,32 +28,32 @@ function Write-Banner {
 function Write-Step {
     param([int]$Number, [string]$Message)
     Write-Host ""
-    Write-Host "[步骤 $Number] " -ForegroundColor Green -NoNewline
+    Write-Host "[Step $Number] " -ForegroundColor Green -NoNewline
     Write-Host $Message
     Write-Host "------------------------------------------------------------"
 }
 
 function Write-Info {
     param([string]$Message)
-    Write-Host "[信息] " -ForegroundColor Blue -NoNewline
+    Write-Host "[INFO] " -ForegroundColor Blue -NoNewline
     Write-Host $Message
 }
 
 function Write-Warn {
     param([string]$Message)
-    Write-Host "[警告] " -ForegroundColor Yellow -NoNewline
+    Write-Host "[WARN] " -ForegroundColor Yellow -NoNewline
     Write-Host $Message
 }
 
 function Write-Error-Custom {
     param([string]$Message)
-    Write-Host "[错误] " -ForegroundColor Red -NoNewline
+    Write-Host "[ERROR] " -ForegroundColor Red -NoNewline
     Write-Host $Message
 }
 
 function Write-Success {
     param([string]$Message)
-    Write-Host "[成功] " -ForegroundColor Green -NoNewline
+    Write-Host "[OK] " -ForegroundColor Green -NoNewline
     Write-Host $Message
 }
 
@@ -66,42 +66,42 @@ function Test-GethInstalled {
     }
 }
 
-# ==================== 安装流程 ====================
+# ==================== Installation Process ====================
 
 function Test-Dependencies {
-    Write-Step 1 "检查系统依赖"
+    Write-Step 1 "Checking system dependencies"
 
-    # 检查 PowerShell 版本
+    # Check PowerShell version
     if ($PSVersionTable.PSVersion.Major -lt 5) {
-        Write-Error-Custom "需要 PowerShell 5.0 或更高版本"
+        Write-Error-Custom "PowerShell 5.0 or higher is required"
         exit 1
     }
 
-    Write-Success "系统依赖检查通过"
+    Write-Success "System dependencies check passed"
 }
 
 function Initialize-Directories {
-    Write-Step 2 "创建目录结构"
+    Write-Step 2 "Creating directory structure"
 
-    $promptDir = Read-Host "请输入安装目录 [默认: $DEFAULT_INSTALL_DIR]"
+    $promptDir = Read-Host "Enter installation directory [default: $DEFAULT_INSTALL_DIR]"
     if ([string]::IsNullOrWhiteSpace($promptDir)) {
         $script:INSTALL_DIR = $DEFAULT_INSTALL_DIR
     } else {
         $script:INSTALL_DIR = $promptDir
     }
 
-    # 检查是否存在数据
+    # Check if data exists
     $chaindata = Join-Path $INSTALL_DIR "data\PIJSChain\chaindata"
     if (Test-Path $chaindata) {
-        Write-Warn "检测到已存在的节点数据: $INSTALL_DIR\data"
-        $confirm = Read-Host "是否继续？这将保留现有数据 (y/n)"
+        Write-Warn "Existing node data detected: $INSTALL_DIR\data"
+        $confirm = Read-Host "Continue? This will preserve existing data (y/n)"
         if ($confirm -notmatch "^[Yy]$") {
-            Write-Host "已取消"
+            Write-Host "Cancelled"
             exit 0
         }
     }
 
-    # 创建目录
+    # Create directories
     $dirs = @(
         (Join-Path $INSTALL_DIR "data\PIJSChain"),
         (Join-Path $INSTALL_DIR "logs"),
@@ -115,11 +115,11 @@ function Initialize-Directories {
     }
 
     Set-Location $INSTALL_DIR
-    Write-Success "目录创建完成: $INSTALL_DIR"
+    Write-Success "Directories created: $INSTALL_DIR"
 }
 
 function Get-GethBinary {
-    Write-Step 3 "下载节点程序"
+    Write-Step 3 "Downloading node program"
 
     $arch = if ([Environment]::Is64BitOperatingSystem) { "amd64" } else { "386" }
     $platform = "windows-$arch"
@@ -128,217 +128,217 @@ function Get-GethBinary {
 
     if (Test-GethInstalled) {
         $version = (geth version 2>$null | Select-Object -First 1)
-        Write-Info "检测到已安装的 geth: $version"
-        $redownload = Read-Host "是否重新下载最新版本? (y/n) [默认: n]"
+        Write-Info "Detected installed geth: $version"
+        $redownload = Read-Host "Download latest version? (y/n) [default: n]"
         if ($redownload -notmatch "^[Yy]$") {
-            Write-Info "跳过下载，使用现有版本"
+            Write-Info "Skipping download, using existing version"
             return
         }
     }
 
-    Write-Info "正在下载 geth ($platform)..."
-    Write-Info "下载地址: $gethUrl"
+    Write-Info "Downloading geth ($platform)..."
+    Write-Info "URL: $gethUrl"
 
     $downloadPath = Join-Path $INSTALL_DIR $gethTar
 
-    # 下载文件
+    # Download file
     if (-not (Test-Path $downloadPath)) {
         try {
             Invoke-WebRequest -Uri $gethUrl -OutFile $downloadPath -UseBasicParsing
-            Write-Success "下载完成"
+            Write-Success "Download complete"
         } catch {
-            Write-Error-Custom "下载失败: $_"
+            Write-Error-Custom "Download failed: $_"
             exit 1
         }
     } else {
-        Write-Info "发现已下载的文件，跳过下载"
+        Write-Info "Found downloaded file, skipping download"
     }
 
-    # 解压（需要 tar 命令，Windows 10+ 自带）
-    Write-Info "解压文件..."
+    # Extract (requires tar command, built-in on Windows 10+)
+    Write-Info "Extracting files..."
     Set-Location $INSTALL_DIR
     tar -xzf $gethTar
 
-    # 创建 bin 目录
+    # Create bin directory
     $binDir = Join-Path $INSTALL_DIR "bin"
     if (-not (Test-Path $binDir)) {
         New-Item -ItemType Directory -Path $binDir -Force | Out-Null
     }
 
-    # 移动二进制文件
+    # Move binary files
     $binaries = @("geth.exe", "bootnode.exe", "abigen.exe", "clef.exe", "evm.exe", "rlpdump.exe")
     foreach ($binary in $binaries) {
         $sourcePath = Join-Path $INSTALL_DIR $binary
         if (Test-Path $sourcePath) {
             Move-Item $sourcePath $binDir -Force
-            Write-Info "已安装: $binary"
+            Write-Info "Installed: $binary"
         }
     }
 
-    # 清理压缩包
+    # Clean up archive
     Remove-Item $downloadPath -Force -ErrorAction SilentlyContinue
 
-    # 添加到 PATH
-    Write-Info "配置环境变量..."
+    # Add to PATH
+    Write-Info "Configuring environment variables..."
     $env:PATH = "$binDir;$env:PATH"
 
-    # 永久添加到用户 PATH
+    # Permanently add to user PATH
     $currentPath = [Environment]::GetEnvironmentVariable("PATH", "User")
     if ($currentPath -notlike "*pijs-node\bin*") {
         [Environment]::SetEnvironmentVariable("PATH", "$binDir;$currentPath", "User")
-        Write-Info "已添加到系统 PATH"
+        Write-Info "Added to system PATH"
     }
 
-    # 验证安装
+    # Verify installation
     $gethPath = Join-Path $binDir "geth.exe"
     if (Test-Path $gethPath) {
         & $gethPath version
-        Write-Success "节点程序安装完成"
-        Write-Info "二进制文件位置: $binDir"
-        Write-Warn "请重新打开 PowerShell 窗口使环境变量生效"
+        Write-Success "Node program installation complete"
+        Write-Info "Binary location: $binDir"
+        Write-Warn "Please reopen PowerShell window for environment variables to take effect"
     } else {
-        Write-Error-Custom "geth 安装失败"
+        Write-Error-Custom "geth installation failed"
         exit 1
     }
 }
 
 function Get-GenesisConfig {
-    Write-Step 4 "下载创世配置"
+    Write-Step 4 "Downloading genesis configuration"
 
     $genesisPath = Join-Path $INSTALL_DIR "genesis.json"
 
     if (Test-Path $genesisPath) {
-        Write-Info "检测到已存在的 genesis.json"
-        $redownload = Read-Host "是否重新下载? (y/n) [默认: n]"
+        Write-Info "Existing genesis.json detected"
+        $redownload = Read-Host "Re-download? (y/n) [default: n]"
         if ($redownload -notmatch "^[Yy]$") {
-            Write-Info "跳过下载，使用现有配置"
+            Write-Info "Skipping download, using existing configuration"
             return
         }
     }
 
-    Write-Info "正在下载 genesis.json..."
-    Write-Info "下载地址: $GENESIS_URL"
+    Write-Info "Downloading genesis.json..."
+    Write-Info "URL: $GENESIS_URL"
 
-    # 尝试自动下载
+    # Try auto download
     try {
         Invoke-WebRequest -Uri $GENESIS_URL -OutFile $genesisPath -UseBasicParsing
-        Write-Success "genesis.json 下载完成"
+        Write-Success "genesis.json download complete"
     } catch {
-        # 下载失败，提示手动下载
+        # Download failed, prompt for manual download
         Write-Host ""
-        Write-Warn "自动下载失败，请手动下载 genesis.json"
-        Write-Info "下载地址: $GENESIS_URL"
-        Write-Info "保存到: $genesisPath"
+        Write-Warn "Auto download failed, please download genesis.json manually"
+        Write-Info "URL: $GENESIS_URL"
+        Write-Info "Save to: $genesisPath"
         Write-Host ""
 
-        $genesisReady = Read-Host "genesis.json 是否已准备好? (y/n)"
+        $genesisReady = Read-Host "Is genesis.json ready? (y/n)"
         if ($genesisReady -notmatch "^[Yy]$") {
-            Write-Error-Custom "请先下载 genesis.json 后再运行此脚本"
+            Write-Error-Custom "Please download genesis.json before running this script"
             exit 1
         }
 
         if (-not (Test-Path $genesisPath)) {
-            Write-Error-Custom "genesis.json 文件不存在"
+            Write-Error-Custom "genesis.json file does not exist"
             exit 1
         }
     }
 
-    Write-Success "创世配置就绪"
+    Write-Success "Genesis configuration ready"
 }
 
 function New-Nodekey {
-    Write-Step 5 "生成节点身份 (nodekey)"
+    Write-Step 5 "Generating node identity (nodekey)"
 
     $nodekeyPath = Join-Path $INSTALL_DIR "data\PIJSChain\nodekey"
     $nodekeyDir = Join-Path $INSTALL_DIR "data\PIJSChain"
     $bootnodePath = Join-Path $INSTALL_DIR "bin\bootnode.exe"
 
-    # 确保目录存在
+    # Ensure directory exists
     if (-not (Test-Path $nodekeyDir)) {
         New-Item -ItemType Directory -Path $nodekeyDir -Force | Out-Null
     }
 
     if (Test-Path $nodekeyPath) {
-        Write-Info "检测到已存在的 nodekey"
-        $keepNodekey = Read-Host "是否保留现有 nodekey? (y/n) [默认: y]"
+        Write-Info "Existing nodekey detected"
+        $keepNodekey = Read-Host "Keep existing nodekey? (y/n) [default: y]"
         if ($keepNodekey -match "^[Nn]$") {
             Remove-Item $nodekeyPath -Force
         } else {
-            Write-Info "保留现有 nodekey"
-            # 显示现有 enode 地址
+            Write-Info "Keeping existing nodekey"
+            # Show existing enode address
             if (Test-Path $bootnodePath) {
                 $enodeAddr = & $bootnodePath -nodekey $nodekeyPath -writeaddress 2>$null
                 if ($enodeAddr) {
-                    Write-Info "节点 ID: $enodeAddr"
+                    Write-Info "Node ID: $enodeAddr"
                 }
             }
             return
         }
     }
 
-    Write-Info "生成新的 nodekey..."
+    Write-Info "Generating new nodekey..."
 
-    # 优先使用 bootnode 工具生成
+    # Prefer bootnode tool for generation
     if (Test-Path $bootnodePath) {
         & $bootnodePath -genkey $nodekeyPath
-        Write-Success "nodekey 已生成 (使用 bootnode)"
-        # 显示 enode 地址
+        Write-Success "nodekey generated (using bootnode)"
+        # Show enode address
         $enodeAddr = & $bootnodePath -nodekey $nodekeyPath -writeaddress 2>$null
         if ($enodeAddr) {
-            Write-Info "节点 ID: $enodeAddr"
+            Write-Info "Node ID: $enodeAddr"
         }
     } else {
-        # 备用方案：生成 32 字节随机数
+        # Fallback: generate 32-byte random number
         $bytes = New-Object byte[] 32
         $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
         $rng.GetBytes($bytes)
         $nodekey = [BitConverter]::ToString($bytes) -replace '-', ''
         Set-Content -Path $nodekeyPath -Value $nodekey.ToLower() -NoNewline
-        Write-Success "nodekey 已生成 (使用随机数)"
+        Write-Success "nodekey generated (using random)"
     }
 
-    Write-Info "nodekey 位置: $nodekeyPath"
-    Write-Warn "请妥善备份此文件，它决定了您的节点身份"
+    Write-Info "nodekey location: $nodekeyPath"
+    Write-Warn "Please backup this file securely, it determines your node identity"
 }
 
 function New-BLSKey {
-    Write-Step 6 "生成 BLS 密钥"
+    Write-Step 6 "Generating BLS key"
 
     $blsKeyfile = Join-Path $INSTALL_DIR "keys\bls-keystore.json"
     $blsPassword = Join-Path $INSTALL_DIR "keys\password.txt"
 
     if (Test-Path $blsKeyfile) {
-        Write-Info "检测到已存在的 BLS 密钥"
-        $keepBls = Read-Host "是否保留现有 BLS 密钥? (y/n) [默认: y]"
+        Write-Info "Existing BLS key detected"
+        $keepBls = Read-Host "Keep existing BLS key? (y/n) [default: y]"
         if ($keepBls -match "^[Nn]$") {
             Remove-Item $blsKeyfile -Force -ErrorAction SilentlyContinue
             Remove-Item $blsPassword -Force -ErrorAction SilentlyContinue
         } else {
-            Write-Info "保留现有 BLS 密钥"
+            Write-Info "Keeping existing BLS key"
             return
         }
     }
 
     Write-Host ""
-    Write-Info "即将生成 BLS 密钥，请设置一个强密码"
-    Write-Warn "此密码用于加密您的 BLS 私钥，请务必牢记！"
+    Write-Info "About to generate BLS key, please set a strong password"
+    Write-Warn "This password encrypts your BLS private key, remember it!"
     Write-Host ""
 
-    # 获取密码
+    # Get password
     while ($true) {
-        $blsPwd = Read-Host "请输入 BLS 密钥密码" -AsSecureString
-        $blsPwdConfirm = Read-Host "请再次输入密码确认" -AsSecureString
+        $blsPwd = Read-Host "Enter BLS key password" -AsSecureString
+        $blsPwdConfirm = Read-Host "Confirm password" -AsSecureString
 
         $pwd1 = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($blsPwd))
         $pwd2 = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($blsPwdConfirm))
 
         if ($pwd1 -ne $pwd2) {
-            Write-Error-Custom "两次输入的密码不一致，请重试"
+            Write-Error-Custom "Passwords do not match, please try again"
             continue
         }
 
         if ($pwd1.Length -lt 8) {
-            Write-Error-Custom "密码长度至少需要 8 个字符"
+            Write-Error-Custom "Password must be at least 8 characters"
             continue
         }
 
@@ -346,129 +346,129 @@ function New-BLSKey {
         break
     }
 
-    # 保存密码到文件
+    # Save password to file
     Set-Content -Path $blsPassword -Value $BLS_PWD -NoNewline
 
-    # 生成 BLS 密钥
-    Write-Info "正在生成 BLS 密钥..."
+    # Generate BLS key
+    Write-Info "Generating BLS key..."
 
     & geth hybrid bls generate --save $blsKeyfile --password $blsPassword
 
     if (-not (Test-Path $blsKeyfile)) {
-        Write-Error-Custom "BLS 密钥生成失败"
+        Write-Error-Custom "BLS key generation failed"
         exit 1
     }
 
     Write-Host ""
-    Write-Success "BLS 密钥生成成功"
-    Write-Info "密钥文件: $blsKeyfile"
-    Write-Info "密码文件: $blsPassword"
+    Write-Success "BLS key generated successfully"
+    Write-Info "Key file: $blsKeyfile"
+    Write-Info "Password file: $blsPassword"
     Write-Host ""
-    Write-Info "您的 BLS 公钥:"
+    Write-Info "Your BLS public key:"
     & geth hybrid bls show --keyfile $blsKeyfile --password $blsPassword
     Write-Host ""
-    Write-Warn "请妥善备份 BLS 密钥文件和密码，丢失后无法恢复！"
+    Write-Warn "Please backup BLS key file and password securely, cannot be recovered if lost!"
 }
 
 function Initialize-Blockchain {
-    Write-Step 7 "初始化区块链数据"
+    Write-Step 7 "Initializing blockchain data"
 
     $chaindata = Join-Path $INSTALL_DIR "data\PIJSChain\chaindata"
     $genesisPath = Join-Path $INSTALL_DIR "genesis.json"
 
     if ((Test-Path $chaindata) -and (Get-ChildItem $chaindata -ErrorAction SilentlyContinue)) {
-        Write-Info "检测到已初始化的区块链数据"
-        $skipInit = Read-Host "是否跳过初始化? (y/n) [默认: y]"
+        Write-Info "Existing blockchain data detected"
+        $skipInit = Read-Host "Skip initialization? (y/n) [default: y]"
         if ($skipInit -notmatch "^[Nn]$") {
-            Write-Info "跳过初始化"
+            Write-Info "Skipping initialization"
             return
         }
-        Write-Warn "重新初始化将删除现有数据！"
-        $confirmDelete = Read-Host "确认删除并重新初始化? (yes/no)"
+        Write-Warn "Re-initialization will delete existing data!"
+        $confirmDelete = Read-Host "Confirm delete and re-initialize? (yes/no)"
         if ($confirmDelete -ne "yes") {
-            Write-Info "取消重新初始化"
+            Write-Info "Cancelled re-initialization"
             return
         }
         Remove-Item (Join-Path $INSTALL_DIR "data\PIJSChain\chaindata") -Recurse -Force -ErrorAction SilentlyContinue
         Remove-Item (Join-Path $INSTALL_DIR "data\PIJSChain\lightchaindata") -Recurse -Force -ErrorAction SilentlyContinue
     }
 
-    Write-Info "正在初始化区块链数据..."
+    Write-Info "Initializing blockchain data..."
     $datadir = Join-Path $INSTALL_DIR "data"
     & geth init --datadir $datadir $genesisPath
 
-    Write-Success "区块链数据初始化完成"
+    Write-Success "Blockchain data initialization complete"
 }
 
 function Set-WithdrawalAddress {
-    Write-Step 8 "配置提款地址"
+    Write-Step 8 "Configuring withdrawal address"
 
     Write-Host ""
-    Write-Info "提款地址用于接收您的质押奖励"
-    Write-Warn "请确保您完全控制此地址的私钥"
+    Write-Info "Withdrawal address receives your staking rewards"
+    Write-Warn "Ensure you have full control of this address's private key"
     Write-Host ""
 
     while ($true) {
-        $addr = Read-Host "请输入您的提款地址 (0x 开头)"
+        $addr = Read-Host "Enter your withdrawal address (starting with 0x)"
 
         if ($addr -notmatch "^0x[a-fA-F0-9]{40}$") {
-            Write-Error-Custom "地址格式不正确，请输入有效的以太坊地址"
+            Write-Error-Custom "Invalid address format, please enter a valid Ethereum address"
             continue
         }
 
-        $confirm = Read-Host "确认提款地址: $addr (y/n)"
+        $confirm = Read-Host "Confirm withdrawal address: $addr (y/n)"
         if ($confirm -match "^[Yy]$") {
             $script:WITHDRAWAL_ADDRESS = $addr
             break
         }
     }
 
-    Write-Success "提款地址已配置: $WITHDRAWAL_ADDRESS"
+    Write-Success "Withdrawal address configured: $WITHDRAWAL_ADDRESS"
 }
 
 function Get-Bootnodes {
-    Write-Step 9 "配置引导节点"
+    Write-Step 9 "Configuring boot nodes"
 
-    # 默认引导节点
+    # Default boot nodes
     $defaultBootnodes = "enode://6f05512feacca0b15cd94ed2165e8f96b16cf346cb16ba7810a37bea05851b3887ee8ef3ee790090cb3352f37a710bcd035d6b0bfd8961287751532c2b0717fb@54.169.152.20:30303,enode://2d2370d19648032a525287645a38b6f1a87199e282cf9a99ebc25f3387e79780695b6c517bd8180be4e9b6b93c39502185960203c35d1ea067924f40e0fd50f1@104.16.132.181:30303,enode://3fb2f819279b92f256718081af1c26bb94c4056f9938f8f1897666f1612ad478e2d84fc56428d20f99201d958951bde4c3f732d27c52d0c5138d9174e744e115@52.76.128.119:30303"
 
     Write-Host ""
-    Write-Info "引导节点用于连接到 PIJS 网络"
+    Write-Info "Boot nodes are used to connect to the PIJS network"
     Write-Host ""
 
-    # 尝试下载 bootnodes.txt
-    Write-Info "正在获取引导节点列表..."
+    # Try to download bootnodes.txt
+    Write-Info "Fetching boot node list..."
     $bootnodesPath = Join-Path $INSTALL_DIR "bootnodes.txt"
 
     try {
         Invoke-WebRequest -Uri $BOOTNODE_URL -OutFile $bootnodesPath -UseBasicParsing
-        # 读取 bootnodes.txt 并合并为逗号分隔的字符串
+        # Read bootnodes.txt and merge into comma-separated string
         $bootnodesContent = Get-Content $bootnodesPath | Where-Object { $_ -notmatch "^#" -and $_ -ne "" }
         if ($bootnodesContent) {
             $script:BOOTNODES = ($bootnodesContent -join ",")
-            Write-Success "已从 bootnodes.txt 获取引导节点"
+            Write-Success "Boot nodes fetched from bootnodes.txt"
         } else {
             $script:BOOTNODES = $defaultBootnodes
-            Write-Info "使用默认引导节点"
+            Write-Info "Using default boot nodes"
         }
     } catch {
         $script:BOOTNODES = $defaultBootnodes
-        Write-Info "使用默认引导节点"
+        Write-Info "Using default boot nodes"
     }
 
-    Write-Success "引导节点已配置"
+    Write-Success "Boot nodes configured"
 }
 
 function New-StartScript {
-    Write-Step 10 "生成启动脚本"
+    Write-Step 10 "Generating startup scripts"
 
     $startScript = Join-Path $INSTALL_DIR "start-node.ps1"
 
     $scriptContent = @"
-# PIJS 节点启动脚本 (Windows)
-# 生成时间: $(Get-Date)
+# PIJS Node Startup Script (Windows)
+# Generated: $(Get-Date)
 
-# ==================== 配置 ====================
+# ==================== Configuration ====================
 `$INSTALL_DIR = "$INSTALL_DIR"
 `$DATADIR = "`$INSTALL_DIR\data"
 `$BLS_KEYFILE = "`$INSTALL_DIR\keys\bls-keystore.json"
@@ -476,68 +476,68 @@ function New-StartScript {
 `$WITHDRAWAL_ADDRESS = "$WITHDRAWAL_ADDRESS"
 `$BOOTNODES = "$BOOTNODES"
 
-# 网络配置
+# Network configuration
 `$NETWORK_ID = "$CHAIN_ID"
 `$HTTP_ADDR = "0.0.0.0"
 `$HTTP_PORT = "8545"
-# 安全警告：仅暴露安全的 API 模块！
-# 安全：eth,net,web3,hybrid
-# 危险（绝不可添加）：personal,admin,debug,miner
+# Security warning: Only expose safe API modules!
+# Safe: eth,net,web3,hybrid
+# Dangerous (never add): personal,admin,debug,miner
 `$HTTP_API = "eth,net,web3,hybrid"
 `$WS_ADDR = "0.0.0.0"
 `$WS_PORT = "8546"
-# 安全警告：同 HTTP_API，不要添加 personal/admin/debug/miner
+# Security warning: Same as HTTP_API, do not add personal/admin/debug/miner
 `$WS_API = "eth,net,web3,hybrid"
 
-# 性能配置
+# Performance configuration
 `$CACHE_SIZE = "4096"
 
-# 日志配置
+# Log configuration
 `$LOG_DIR = "`$INSTALL_DIR\logs"
 `$LOG_FILE = "`$LOG_DIR\geth.log"
 
-# ==================== 启动检查 ====================
+# ==================== Startup Checks ====================
 Write-Host "========================================"
-Write-Host "  PIJS 共识节点启动"
+Write-Host "  PIJS Consensus Node Starting"
 Write-Host "========================================"
 
 if (-not (Test-Path `$BLS_KEYFILE)) {
-    Write-Host "错误: BLS 密钥文件不存在: `$BLS_KEYFILE" -ForegroundColor Red
+    Write-Host "Error: BLS key file does not exist: `$BLS_KEYFILE" -ForegroundColor Red
     exit 1
 }
 
 if (-not (Test-Path `$BLS_PASSWORD)) {
-    Write-Host "错误: BLS 密码文件不存在: `$BLS_PASSWORD" -ForegroundColor Red
+    Write-Host "Error: BLS password file does not exist: `$BLS_PASSWORD" -ForegroundColor Red
     exit 1
 }
 
-# 创建日志目录
+# Create log directory
 if (-not (Test-Path `$LOG_DIR)) {
     New-Item -ItemType Directory -Path `$LOG_DIR -Force | Out-Null
 }
 
-# 显示配置信息
+# Display configuration
 Write-Host ""
-Write-Host "配置信息:"
-Write-Host "  数据目录: `$DATADIR"
-Write-Host "  网络 ID: `$NETWORK_ID"
+Write-Host "Configuration:"
+Write-Host "  Data directory: `$DATADIR"
+Write-Host "  Network ID: `$NETWORK_ID"
 Write-Host "  HTTP RPC: http://`${HTTP_ADDR}:`$HTTP_PORT"
 Write-Host "  WebSocket: ws://`${WS_ADDR}:`$WS_PORT"
-Write-Host "  提款地址: `$WITHDRAWAL_ADDRESS"
-Write-Host "  日志文件: `$LOG_FILE"
+Write-Host "  Withdrawal address: `$WITHDRAWAL_ADDRESS"
+Write-Host "  Log file: `$LOG_FILE"
 Write-Host ""
 
-# 安全警告
+# Security warning
 if (`$HTTP_ADDR -eq "0.0.0.0" -or `$WS_ADDR -eq "0.0.0.0") {
     Write-Host "========================================"
-    Write-Host "安全警告: RPC 接口对外暴露" -ForegroundColor Yellow
+    Write-Host "Security Warning: RPC interface exposed externally" -ForegroundColor Yellow
     Write-Host "========================================"
-    Write-Host "建议配置防火墙限制访问 IP"
+    Write-Host "Recommend configuring firewall to restrict access IPs"
     Write-Host ""
 }
 
-# ==================== 启动节点 ====================
-Write-Host "正在启动节点..."
+# ==================== Start Node ====================
+Write-Host "Starting node..."
 
 `$args = @(
     "--datadir", `$DATADIR,
@@ -574,57 +574,57 @@ Write-Host "正在启动节点..."
 
     Set-Content -Path $startScript -Value $scriptContent
 
-    # 生成停止脚本
+    # Generate stop script
     $stopScript = Join-Path $INSTALL_DIR "stop-node.ps1"
     $stopContent = @"
-# PIJS 节点停止脚本
+# PIJS Node Stop Script
 
-Write-Host "正在停止节点..."
+Write-Host "Stopping node..."
 Get-Process -Name "geth" -ErrorAction SilentlyContinue | Stop-Process -Force
 
-Write-Host "节点已停止"
+Write-Host "Node stopped"
 "@
     Set-Content -Path $stopScript -Value $stopContent
 
-    Write-Success "启动脚本已生成:"
-    Write-Host "  - 启动节点: $startScript"
-    Write-Host "  - 停止节点: $stopScript"
+    Write-Success "Startup scripts generated:"
+    Write-Host "  - Start node: $startScript"
+    Write-Host "  - Stop node: $stopScript"
 }
 
 function Show-Completion {
     Write-Host ""
     Write-Host "============================================================" -ForegroundColor Green
-    Write-Host "        部署完成！" -ForegroundColor Green
+    Write-Host "        Deployment Complete!" -ForegroundColor Green
     Write-Host "============================================================" -ForegroundColor Green
     Write-Host ""
-    Write-Host "节点信息:" -ForegroundColor Blue
-    Write-Host "  安装目录: $INSTALL_DIR"
-    Write-Host "  数据目录: $INSTALL_DIR\data"
-    Write-Host "  BLS 密钥: $INSTALL_DIR\keys\bls-keystore.json"
-    Write-Host "  提款地址: $WITHDRAWAL_ADDRESS"
+    Write-Host "Node Information:" -ForegroundColor Blue
+    Write-Host "  Install directory: $INSTALL_DIR"
+    Write-Host "  Data directory: $INSTALL_DIR\data"
+    Write-Host "  BLS key: $INSTALL_DIR\keys\bls-keystore.json"
+    Write-Host "  Withdrawal address: $WITHDRAWAL_ADDRESS"
     Write-Host ""
-    Write-Host "启动命令:" -ForegroundColor Blue
-    Write-Host "  启动节点: .\start-node.ps1"
-    Write-Host "  停止节点: .\stop-node.ps1"
+    Write-Host "Startup Commands:" -ForegroundColor Blue
+    Write-Host "  Start node: .\start-node.ps1"
+    Write-Host "  Stop node: .\stop-node.ps1"
     Write-Host ""
-    Write-Host "下一步操作:" -ForegroundColor Blue
-    Write-Host "  1. 启动节点: cd $INSTALL_DIR; .\start-node.ps1"
-    Write-Host "  2. 等待节点同步完成"
-    Write-Host "  3. 生成质押签名:"
+    Write-Host "Next Steps:" -ForegroundColor Blue
+    Write-Host "  1. Start node: cd $INSTALL_DIR; .\start-node.ps1"
+    Write-Host "  2. Wait for node synchronization to complete"
+    Write-Host "  3. Generate staking signature:"
     Write-Host "     geth hybrid bls deposit --keyfile .\keys\bls-keystore.json ``"
     Write-Host "       --chainid $CHAIN_ID --address $WITHDRAWAL_ADDRESS --amount 10000 ``"
     Write-Host "       --output deposit_data.json"
-    Write-Host "  4. 访问质押平台，上传 deposit_data.json 完成质押"
+    Write-Host "  4. Visit staking platform, upload deposit_data.json to complete staking"
     Write-Host ""
-    Write-Host "重要提示:" -ForegroundColor Yellow
-    Write-Host "  - 请妥善备份 $INSTALL_DIR\keys\ 目录下的密钥文件"
-    Write-Host "  - 请妥善备份 $INSTALL_DIR\data\PIJSChain\nodekey 文件"
-    Write-Host "  - 首次同步可能需要数小时到数天（归档模式）"
+    Write-Host "Important Notes:" -ForegroundColor Yellow
+    Write-Host "  - Please backup key files in $INSTALL_DIR\keys\ directory securely"
+    Write-Host "  - Please backup $INSTALL_DIR\data\PIJSChain\nodekey file"
+    Write-Host "  - Initial sync may take hours to days (archive mode)"
     Write-Host ""
     Write-Host "============================================================"
 }
 
-# ==================== 主流程 ====================
+# ==================== Main Process ====================
 
 function Main {
     Write-Banner
@@ -643,5 +643,5 @@ function Main {
     Show-Completion
 }
 
-# 运行主流程
+# Run main process
 Main
