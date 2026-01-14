@@ -332,7 +332,7 @@ geth \
   --hybrid.withdrawal "0xYourWithdrawalAddress" \
   --hybrid.blskey ./bls-keystore.json \
   --hybrid.blspassword ./password.txt \
-  --nat "extip:203.0.113.100" \
+  --nat "any" \
   --bootnodes "enode://6f05512feacca0b15cd94ed2165e8f96b16cf346cb16ba7810a37bea05851b3887ee8ef3ee790090cb3352f37a710bcd035d6b0bfd8961287751532c2b0717fb@54.169.152.20:30303,enode://2d2370d19648032a525287645a38b6f1a87199e282cf9a99ebc25f3387e79780695b6c517bd8180be4e9b6b93c39502185960203c35d1ea067924f40e0fd50f1@104.16.132.181:30303,enode://3fb2f819279b92f256718081af1c26bb94c4056f9938f8f1897666f1612ad478e2d84fc56428d20f99201d958951bde4c3f732d27c52d0c5138d9174e744e115@52.76.128.119:30303" \
   --log.file ./logs/geth.log \
   --log.maxsize 100 \
@@ -347,7 +347,7 @@ geth \
 | `--gcmode "archive"` | Archive mode, keeps all historical state (**required**) |
 | `--hybrid.liveness` | Enable liveness proofs (**required**) |
 | `--hybrid.withdrawal` | Reward receiving address |
-| `--nat "extip:..."` | External IP (for P2P discovery) |
+| `--nat "any"` | NAT traversal mode (auto-discover external IP) |
 | `--log.file` | Log file path |
 | `--log.maxsize` | Max size per log file (MB) |
 | `--log.maxbackups` | Number of log files to keep |

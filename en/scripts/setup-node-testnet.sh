@@ -93,21 +93,6 @@ detect_platform() {
     print_info "检测到平台: $PLATFORM"
 }
 
-# 检测外网 IP
-detect_external_ip() {
-    print_info "正在检测外网 IP..."
-    EXTERNAL_IP=$(curl -s --connect-timeout 5 ifconfig.me 2>/dev/null || \
-                  curl -s --connect-timeout 5 ip.sb 2>/dev/null || \
-                  curl -s --connect-timeout 5 ipinfo.io/ip 2>/dev/null || \
-                  echo "")
-
-    if [ -n "$EXTERNAL_IP" ]; then
-        print_info "检测到外网 IP: $EXTERNAL_IP"
-    else
-        print_warn "无法自动检测外网 IP，请稍后手动配置"
-    fi
-}
-
 # 检查命令是否存在
 check_command() {
     if ! command -v "$1" &> /dev/null; then
@@ -576,7 +561,6 @@ DATADIR="\$INSTALL_DIR/data"
 BLS_KEYFILE="\$INSTALL_DIR/keys/bls-keystore.json"
 BLS_PASSWORD="\$INSTALL_DIR/keys/password.txt"
 WITHDRAWAL_ADDRESS="$WITHDRAWAL_ADDRESS"
-EXTERNAL_IP="$EXTERNAL_IP"
 BOOTNODES="$BOOTNODES"
 
 # 网络配置
@@ -628,7 +612,6 @@ echo "  网络 ID: \$NETWORK_ID"
 echo "  HTTP RPC: http://\$HTTP_ADDR:\$HTTP_PORT"
 echo "  WebSocket: ws://\$WS_ADDR:\$WS_PORT"
 echo "  提款地址: \$WITHDRAWAL_ADDRESS"
-echo "  外网 IP: \$EXTERNAL_IP"
 echo "  日志文件: \$LOG_FILE"
 echo ""
 
@@ -672,12 +655,8 @@ START_ARGS=(
     --log.maxsize "\$LOG_MAXSIZE"
     --log.maxbackups "\$LOG_MAXBACKUPS"
     --log.compress
+    --nat "any"
 )
-
-# 如果有外网 IP，添加 NAT 参数
-if [ -n "\$EXTERNAL_IP" ]; then
-    START_ARGS+=(--nat "extip:\$EXTERNAL_IP")
-fi
 
 # 启动 geth
 exec geth "\${START_ARGS[@]}"
@@ -768,7 +747,6 @@ main() {
     print_banner
 
     detect_platform
-    detect_external_ip
 
     check_dependencies
     setup_directories

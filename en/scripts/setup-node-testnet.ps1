@@ -57,24 +57,6 @@ function Write-Success {
     Write-Host $Message
 }
 
-function Get-ExternalIP {
-    Write-Info "正在检测外网 IP..."
-    try {
-        $ip = (Invoke-WebRequest -Uri "https://ifconfig.me" -UseBasicParsing -TimeoutSec 5).Content.Trim()
-        Write-Info "检测到外网 IP: $ip"
-        return $ip
-    } catch {
-        try {
-            $ip = (Invoke-WebRequest -Uri "https://ip.sb" -UseBasicParsing -TimeoutSec 5).Content.Trim()
-            Write-Info "检测到外网 IP: $ip"
-            return $ip
-        } catch {
-            Write-Warn "无法自动检测外网 IP，请稍后手动配置"
-            return ""
-        }
-    }
-}
-
 function Test-GethInstalled {
     try {
         $null = Get-Command geth -ErrorAction Stop
@@ -492,7 +474,6 @@ function New-StartScript {
 `$BLS_KEYFILE = "`$INSTALL_DIR\keys\bls-keystore.json"
 `$BLS_PASSWORD = "`$INSTALL_DIR\keys\password.txt"
 `$WITHDRAWAL_ADDRESS = "$WITHDRAWAL_ADDRESS"
-`$EXTERNAL_IP = "$EXTERNAL_IP"
 `$BOOTNODES = "$BOOTNODES"
 
 # 网络配置
@@ -543,7 +524,6 @@ Write-Host "  网络 ID: `$NETWORK_ID"
 Write-Host "  HTTP RPC: http://`${HTTP_ADDR}:`$HTTP_PORT"
 Write-Host "  WebSocket: ws://`${WS_ADDR}:`$WS_PORT"
 Write-Host "  提款地址: `$WITHDRAWAL_ADDRESS"
-Write-Host "  外网 IP: `$EXTERNAL_IP"
 Write-Host "  日志文件: `$LOG_FILE"
 Write-Host ""
 
@@ -585,13 +565,9 @@ Write-Host "正在启动节点..."
     "--log.file", `$LOG_FILE,
     "--log.maxsize", "100",
     "--log.maxbackups", "10",
-    "--log.compress"
+    "--log.compress",
+    "--nat", "any"
 )
-
-if (-not [string]::IsNullOrWhiteSpace(`$EXTERNAL_IP)) {
-    `$args += "--nat"
-    `$args += "extip:`$EXTERNAL_IP"
-}
 
 & geth @args
 "@
@@ -652,8 +628,6 @@ function Show-Completion {
 
 function Main {
     Write-Banner
-
-    $script:EXTERNAL_IP = Get-ExternalIP
 
     Test-Dependencies
     Initialize-Directories
