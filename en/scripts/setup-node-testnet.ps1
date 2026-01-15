@@ -13,7 +13,7 @@ $BOOTNODE_URL = "https://github.com/PIJSChain/pijs/releases/download/v1.25.6h/bo
 $CHAIN_ID = "20250521"
 $NETWORK_NAME = "PIJS Testnet"
 
-$DEFAULT_INSTALL_DIR = "$env:USERPROFILE\pijs-node"
+$DEFAULT_INSTALL_DIR = "$PSScriptRoot\pijs-node"
 
 # ==================== Utility Functions ====================
 
