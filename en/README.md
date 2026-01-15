@@ -307,7 +307,9 @@ Record your external IP, e.g., `203.0.113.100`
 
 ### 3.3 Start Node
 
-> **Tip**: If you used the automated deployment script `setup-node-testnet.sh`, the start script `start-node.sh` is already generated in the installation directory and can be run directly.
+> **Tip**: If you used the automated deployment script `setup-node-testnet.sh` (or `setup-node-testnet.ps1` for Windows), the start script is already generated in the installation directory and can be run directly.
+
+**Linux / macOS:**
 
 ```bash
 geth \
@@ -337,6 +339,39 @@ geth \
   --log.file ./logs/geth.log \
   --log.maxsize 100 \
   --log.maxbackups 10 \
+  --log.compress
+```
+
+**Windows PowerShell:**
+
+```powershell
+geth `
+  --datadir .\data `
+  --networkid 20250521 `
+  --syncmode "full" `
+  --gcmode "archive" `
+  --cache 4096 `
+  --http `
+  --http.addr "0.0.0.0" `
+  --http.port 8545 `
+  --http.api "eth,net,web3,hybrid" `
+  --http.corsdomain "*" `
+  --http.vhosts "*" `
+  --ws `
+  --ws.addr "0.0.0.0" `
+  --ws.port 8546 `
+  --ws.api "eth,net,web3,hybrid" `
+  --ws.origins "*" `
+  --authrpc.vhosts "*" `
+  --hybrid.liveness `
+  --hybrid.withdrawal "0xYourWithdrawalAddress" `
+  --hybrid.blskey .\bls-keystore.json `
+  --hybrid.blspassword .\password.txt `
+  --nat "any" `
+  --bootnodes "enode://6f05512feacca0b15cd94ed2165e8f96b16cf346cb16ba7810a37bea05851b3887ee8ef3ee790090cb3352f37a710bcd035d6b0bfd8961287751532c2b0717fb@54.169.152.20:30303,enode://2d2370d19648032a525287645a38b6f1a87199e282cf9a99ebc25f3387e79780695b6c517bd8180be4e9b6b93c39502185960203c35d1ea067924f40e0fd50f1@104.16.132.181:30303,enode://3fb2f819279b92f256718081af1c26bb94c4056f9938f8f1897666f1612ad478e2d84fc56428d20f99201d958951bde4c3f732d27c52d0c5138d9174e744e115@52.76.128.119:30303" `
+  --log.file .\logs\geth.log `
+  --log.maxsize 100 `
+  --log.maxbackups 10 `
   --log.compress
 ```
 
@@ -440,6 +475,8 @@ After node is started and synced, complete staking on Web platform to start earn
 
 Execute on node server:
 
+**Linux / macOS:**
+
 ```bash
 cd ~/pijs-node
 
@@ -460,6 +497,31 @@ geth hybrid bls deposit \
   --address 0xCallerAddress \
   --withdrawal 0xOperatorWithdrawalAddress \
   --amount 10000 \
+  --output deposit_data.json
+```
+
+**Windows PowerShell:**
+
+```powershell
+cd ~\pijs-node
+
+# ========== Method 1: Standard Mode ==========
+# Caller address is also used as withdrawal address (recommended for regular users)
+geth hybrid bls deposit `
+  --keyfile .\keys\bls-keystore.json `
+  --chainid 20250521 `
+  --address 0xYourWalletAddress `
+  --amount 10000 `
+  --output deposit_data.json
+
+# ========== Method 2: Operator Mode (dPoS) ==========
+# Caller address and withdrawal address are separate (for node operators managing delegated stakes)
+geth hybrid bls deposit `
+  --keyfile .\keys\bls-keystore.json `
+  --chainid 20250521 `
+  --address 0xCallerAddress `
+  --withdrawal 0xOperatorWithdrawalAddress `
+  --amount 10000 `
   --output deposit_data.json
 ```
 
@@ -592,6 +654,8 @@ Claiming node links your wallet address to the node for Web platform management.
 
 Return to server, sign Challenge with BLS key:
 
+**Linux / macOS:**
+
 ```bash
 cd ~/pijs-node
 
@@ -600,13 +664,28 @@ geth hybrid bls sign \
   --keyfile ./keys/bls-keystore.json \
   --message 0x1234abcd5678ef90... \
   --output easy_management_setup.json
+```
 
-# Output:
-# [hybrid] BLS Signature Data
-# Message: 0x1234abcd5678ef90...
-# BLS Public Key: 0x8a3d6f9e...
-# Signature: 0x2b3c4d5e...
-# Signature data saved to: easy_management_setup.json
+**Windows PowerShell:**
+
+```powershell
+cd ~\pijs-node
+
+# Use Challenge value copied from Web interface
+geth hybrid bls sign `
+  --keyfile .\keys\bls-keystore.json `
+  --message 0x1234abcd5678ef90... `
+  --output easy_management_setup.json
+```
+
+Output example:
+
+```text
+[hybrid] BLS Signature Data
+Message: 0x1234abcd5678ef90...
+BLS Public Key: 0x8a3d6f9e...
+Signature: 0x2b3c4d5e...
+Signature data saved to: easy_management_setup.json
 ```
 
 ### 5.3 Upload Claim Signature
@@ -634,6 +713,8 @@ To add more stake to existing node:
 
 ### 6.1 Generate New Staking Signature
 
+**Linux / macOS:**
+
 ```bash
 cd ~/pijs-node
 
@@ -643,6 +724,20 @@ geth hybrid bls deposit \
   --chainid 20250521 \
   --address 0xYourWalletAddress \
   --amount 5000 \
+  --output deposit_additional.json
+```
+
+**Windows PowerShell:**
+
+```powershell
+cd ~\pijs-node
+
+# Each stake requires new signature file
+geth hybrid bls deposit `
+  --keyfile .\keys\bls-keystore.json `
+  --chainid 20250521 `
+  --address 0xYourWalletAddress `
+  --amount 5000 `
   --output deposit_additional.json
 ```
 
@@ -699,6 +794,8 @@ Stake Start ────── Stake Period ──────> Maturity ──�
 
 ### 7.3 Generate Redemption Signature
 
+**Linux / macOS:**
+
 ```bash
 cd ~/pijs-node
 
@@ -709,12 +806,27 @@ geth hybrid bls redeem \
   --withdrawal 0xYourWithdrawalAddress \
   --recipient 0xYourRecipientAddress \
   --output redeem_data.json
-
-# Parameter description:
-# --orderid     : Order ID (view from Web interface)
-# --withdrawal  : Withdrawal address (must match staking)
-# --recipient   : Fund receiving address (can be any address)
 ```
+
+**Windows PowerShell:**
+
+```powershell
+cd ~\pijs-node
+
+geth hybrid bls redeem `
+  --keyfile .\keys\bls-keystore.json `
+  --chainid 20250521 `
+  --orderid 1 `
+  --withdrawal 0xYourWithdrawalAddress `
+  --recipient 0xYourRecipientAddress `
+  --output redeem_data.json
+```
+
+**Parameter description:**
+
+- `--orderid`: Order ID (view from Web interface)
+- `--withdrawal`: Withdrawal address (must match staking)
+- `--recipient`: Fund receiving address (can be any address)
 
 ### 7.4 Redeem on Web Platform
 
@@ -840,6 +952,8 @@ geth hybrid bls import --privkey 0x... --save ./bls-keystore.json
 
 ### Signature Generation
 
+**Linux / macOS:**
+
 ```bash
 # Staking signature (Standard Mode)
 geth hybrid bls deposit \
@@ -871,6 +985,42 @@ geth hybrid bls redeem \
   --orderid 1 \
   --withdrawal 0x... \
   --recipient 0x... \
+  --output redeem_data.json
+```
+
+**Windows PowerShell:**
+
+```powershell
+# Staking signature (Standard Mode)
+geth hybrid bls deposit `
+  --keyfile .\keys\bls-keystore.json `
+  --chainid 20250521 `
+  --address 0x... `
+  --amount 10000 `
+  --output deposit_data.json
+
+# Staking signature (Operator Mode - with separate withdrawal address)
+geth hybrid bls deposit `
+  --keyfile .\keys\bls-keystore.json `
+  --chainid 20250521 `
+  --address 0x... `
+  --withdrawal 0x... `
+  --amount 10000 `
+  --output deposit_data.json
+
+# Claim signature
+geth hybrid bls sign `
+  --keyfile .\keys\bls-keystore.json `
+  --message 0x... `
+  --output easy_management_setup.json
+
+# Redemption signature
+geth hybrid bls redeem `
+  --keyfile .\keys\bls-keystore.json `
+  --chainid 20250521 `
+  --orderid 1 `
+  --withdrawal 0x... `
+  --recipient 0x... `
   --output redeem_data.json
 ```
 

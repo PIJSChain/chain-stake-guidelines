@@ -307,7 +307,9 @@ curl -s ip.sb
 
 ### 3.3 启动节点
 
-> **提示**：如果您使用了自动部署脚本 `setup-node-testnet.sh`，启动脚本 `start-node.sh` 已自动生成在安装目录下，可直接运行。
+> **提示**：如果您使用了自动部署脚本 `setup-node-testnet.sh`（或 Windows 的 `setup-node-testnet.ps1`），启动脚本已自动生成在安装目录下，可直接运行。
+
+#### Linux / macOS
 
 ```bash
 geth \
@@ -337,6 +339,39 @@ geth \
   --log.file ./logs/geth.log \
   --log.maxsize 100 \
   --log.maxbackups 10 \
+  --log.compress
+```
+
+#### Windows PowerShell
+
+```powershell
+geth `
+  --datadir .\data `
+  --networkid 20250521 `
+  --syncmode "full" `
+  --gcmode "archive" `
+  --cache 4096 `
+  --http `
+  --http.addr "0.0.0.0" `
+  --http.port 8545 `
+  --http.api "eth,net,web3,hybrid" `
+  --http.corsdomain "*" `
+  --http.vhosts "*" `
+  --ws `
+  --ws.addr "0.0.0.0" `
+  --ws.port 8546 `
+  --ws.api "eth,net,web3,hybrid" `
+  --ws.origins "*" `
+  --authrpc.vhosts "*" `
+  --hybrid.liveness `
+  --hybrid.withdrawal "0xYourWithdrawalAddress" `
+  --hybrid.blskey .\bls-keystore.json `
+  --hybrid.blspassword .\password.txt `
+  --nat "any" `
+  --bootnodes "enode://6f05512feacca0b15cd94ed2165e8f96b16cf346cb16ba7810a37bea05851b3887ee8ef3ee790090cb3352f37a710bcd035d6b0bfd8961287751532c2b0717fb@54.169.152.20:30303,enode://2d2370d19648032a525287645a38b6f1a87199e282cf9a99ebc25f3387e79780695b6c517bd8180be4e9b6b93c39502185960203c35d1ea067924f40e0fd50f1@104.16.132.181:30303,enode://3fb2f819279b92f256718081af1c26bb94c4056f9938f8f1897666f1612ad478e2d84fc56428d20f99201d958951bde4c3f732d27c52d0c5138d9174e744e115@52.76.128.119:30303" `
+  --log.file .\logs\geth.log `
+  --log.maxsize 100 `
+  --log.maxbackups 10 `
   --log.compress
 ```
 
@@ -440,6 +475,8 @@ sudo journalctl -u geth-node -f
 
 在节点服务器上执行：
 
+**Linux / macOS:**
+
 ```bash
 cd ~/pijs-node
 
@@ -460,6 +497,31 @@ geth hybrid bls deposit \
   --address 0xCallerAddress \
   --withdrawal 0xOperatorWithdrawalAddress \
   --amount 10000 \
+  --output deposit_data.json
+```
+
+**Windows PowerShell:**
+
+```powershell
+cd ~\pijs-node
+
+# ========== 方式一：标准模式 ==========
+# 调用者地址同时作为提款地址（推荐普通用户使用）
+geth hybrid bls deposit `
+  --keyfile .\keys\bls-keystore.json `
+  --chainid 20250521 `
+  --address 0xYourWalletAddress `
+  --amount 10000 `
+  --output deposit_data.json
+
+# ========== 方式二：运营商模式（dPoS） ==========
+# 调用者地址和提款地址分离（适用于节点运营商代理质押）
+geth hybrid bls deposit `
+  --keyfile .\keys\bls-keystore.json `
+  --chainid 20250521 `
+  --address 0xCallerAddress `
+  --withdrawal 0xOperatorWithdrawalAddress `
+  --amount 10000 `
   --output deposit_data.json
 ```
 
@@ -592,6 +654,8 @@ geth hybrid bls deposit \
 
 回到服务器，使用 BLS 密钥对 Challenge 签名：
 
+**Linux / macOS:**
+
 ```bash
 cd ~/pijs-node
 
@@ -600,13 +664,28 @@ geth hybrid bls sign \
   --keyfile ./keys/bls-keystore.json \
   --message 0x1234abcd5678ef90... \
   --output easy_management_setup.json
+```
 
-# 输出：
-# [hybrid] BLS Signature Data
-# Message: 0x1234abcd5678ef90...
-# BLS Public Key: 0x8a3d6f9e...
-# Signature: 0x2b3c4d5e...
-# Signature data saved to: easy_management_setup.json
+**Windows PowerShell:**
+
+```powershell
+cd ~\pijs-node
+
+# 使用从 Web 界面复制的 Challenge 值
+geth hybrid bls sign `
+  --keyfile .\keys\bls-keystore.json `
+  --message 0x1234abcd5678ef90... `
+  --output easy_management_setup.json
+```
+
+输出示例：
+
+```text
+[hybrid] BLS Signature Data
+Message: 0x1234abcd5678ef90...
+BLS Public Key: 0x8a3d6f9e...
+Signature: 0x2b3c4d5e...
+Signature data saved to: easy_management_setup.json
 ```
 
 ### 5.3 上传认领签名
@@ -634,6 +713,8 @@ geth hybrid bls sign \
 
 ### 6.1 生成新的质押签名
 
+**Linux / macOS:**
+
 ```bash
 cd ~/pijs-node
 
@@ -643,6 +724,20 @@ geth hybrid bls deposit \
   --chainid 20250521 \
   --address 0xYourWalletAddress \
   --amount 5000 \
+  --output deposit_additional.json
+```
+
+**Windows PowerShell:**
+
+```powershell
+cd ~\pijs-node
+
+# 每次质押都需要生成新的签名文件
+geth hybrid bls deposit `
+  --keyfile .\keys\bls-keystore.json `
+  --chainid 20250521 `
+  --address 0xYourWalletAddress `
+  --amount 5000 `
   --output deposit_additional.json
 ```
 
@@ -699,6 +794,8 @@ geth hybrid bls deposit \
 
 ### 7.3 生成赎回签名
 
+**Linux / macOS:**
+
 ```bash
 cd ~/pijs-node
 
@@ -709,12 +806,27 @@ geth hybrid bls redeem \
   --withdrawal 0xYourWithdrawalAddress \
   --recipient 0xYourRecipientAddress \
   --output redeem_data.json
-
-# 参数说明：
-# --orderid     : 订单 ID（从 Web 界面查看）
-# --withdrawal  : 提款地址（必须与质押时一致）
-# --recipient   : 资金接收地址（可以是任意地址）
 ```
+
+**Windows PowerShell:**
+
+```powershell
+cd ~\pijs-node
+
+geth hybrid bls redeem `
+  --keyfile .\keys\bls-keystore.json `
+  --chainid 20250521 `
+  --orderid 1 `
+  --withdrawal 0xYourWithdrawalAddress `
+  --recipient 0xYourRecipientAddress `
+  --output redeem_data.json
+```
+
+**参数说明：**
+
+- `--orderid`：订单 ID（从 Web 界面查看）
+- `--withdrawal`：提款地址（必须与质押时一致）
+- `--recipient`：资金接收地址（可以是任意地址）
 
 ### 7.4 在 Web 平台赎回
 
@@ -840,6 +952,8 @@ geth hybrid bls import --privkey 0x... --save ./bls-keystore.json
 
 ### 签名生成
 
+**Linux / macOS:**
+
 ```bash
 # 质押签名（标准模式）
 geth hybrid bls deposit \
@@ -871,6 +985,42 @@ geth hybrid bls redeem \
   --orderid 1 \
   --withdrawal 0x... \
   --recipient 0x... \
+  --output redeem_data.json
+```
+
+**Windows PowerShell:**
+
+```powershell
+# 质押签名（标准模式）
+geth hybrid bls deposit `
+  --keyfile .\keys\bls-keystore.json `
+  --chainid 20250521 `
+  --address 0x... `
+  --amount 10000 `
+  --output deposit_data.json
+
+# 质押签名（运营商模式 - 指定独立提款地址）
+geth hybrid bls deposit `
+  --keyfile .\keys\bls-keystore.json `
+  --chainid 20250521 `
+  --address 0x... `
+  --withdrawal 0x... `
+  --amount 10000 `
+  --output deposit_data.json
+
+# 认领签名
+geth hybrid bls sign `
+  --keyfile .\keys\bls-keystore.json `
+  --message 0x... `
+  --output easy_management_setup.json
+
+# 赎回签名
+geth hybrid bls redeem `
+  --keyfile .\keys\bls-keystore.json `
+  --chainid 20250521 `
+  --orderid 1 `
+  --withdrawal 0x... `
+  --recipient 0x... `
   --output redeem_data.json
 ```
 
