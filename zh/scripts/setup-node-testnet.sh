@@ -624,8 +624,36 @@ if [ "\$HTTP_ADDR" == "0.0.0.0" ] || [ "\$WS_ADDR" == "0.0.0.0" ]; then
     echo ""
 fi
 
+# ==================== 检测公网IP ====================
+detect_public_ip() {
+    local ip=""
+    # 尝试多个服务获取公网IP
+    for service in "https://api.ipify.org" "https://ifconfig.me" "https://icanhazip.com" "https://ipecho.net/plain"; do
+        ip=\$(curl -s --connect-timeout 3 --max-time 5 "\$service" 2>/dev/null | tr -d '[:space:]')
+        # 验证IPv4格式
+        if [[ "\$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\$ ]]; then
+            echo "\$ip"
+            return 0
+        fi
+    done
+    return 1
+}
+
 # ==================== 启动节点 ====================
 echo "正在启动节点..."
+
+# 检测公网IP用于NAT配置
+echo "正在检测公网IP..."
+PUBLIC_IP=\$(detect_public_ip)
+if [ -n "\$PUBLIC_IP" ]; then
+    NAT_CONFIG="extip:\$PUBLIC_IP"
+    echo "  检测到公网IP: \$PUBLIC_IP"
+    echo "  NAT配置: \$NAT_CONFIG"
+else
+    NAT_CONFIG="any"
+    echo "  未检测到公网IP，使用 NAT: any"
+fi
+echo ""
 
 # 构建启动参数
 START_ARGS=(
@@ -655,7 +683,7 @@ START_ARGS=(
     --log.maxsize "\$LOG_MAXSIZE"
     --log.maxbackups "\$LOG_MAXBACKUPS"
     --log.compress
-    --nat "any"
+    --nat "\$NAT_CONFIG"
 )
 
 # 启动 geth

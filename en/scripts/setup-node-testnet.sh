@@ -624,8 +624,36 @@ if [ "\$HTTP_ADDR" == "0.0.0.0" ] || [ "\$WS_ADDR" == "0.0.0.0" ]; then
     echo ""
 fi
 
+# ==================== Detect Public IP ====================
+detect_public_ip() {
+    local ip=""
+    # Try multiple services to get public IP
+    for service in "https://api.ipify.org" "https://ifconfig.me" "https://icanhazip.com" "https://ipecho.net/plain"; do
+        ip=\$(curl -s --connect-timeout 3 --max-time 5 "\$service" 2>/dev/null | tr -d '[:space:]')
+        # Validate IPv4 format
+        if [[ "\$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\$ ]]; then
+            echo "\$ip"
+            return 0
+        fi
+    done
+    return 1
+}
+
 # ==================== Start Node ====================
 echo "Starting node..."
+
+# Detect public IP for NAT configuration
+echo "Detecting public IP..."
+PUBLIC_IP=\$(detect_public_ip)
+if [ -n "\$PUBLIC_IP" ]; then
+    NAT_CONFIG="extip:\$PUBLIC_IP"
+    echo "  Public IP detected: \$PUBLIC_IP"
+    echo "  NAT config: \$NAT_CONFIG"
+else
+    NAT_CONFIG="any"
+    echo "  No public IP detected, using NAT: any"
+fi
+echo ""
 
 # Build startup arguments
 START_ARGS=(
@@ -655,7 +683,7 @@ START_ARGS=(
     --log.maxsize "\$LOG_MAXSIZE"
     --log.maxbackups "\$LOG_MAXBACKUPS"
     --log.compress
-    --nat "any"
+    --nat "\$NAT_CONFIG"
 )
 
 # Start geth
