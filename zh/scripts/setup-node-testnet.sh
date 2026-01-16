@@ -542,9 +542,83 @@ get_bootnodes() {
     print_success "引导节点已配置"
 }
 
+# 配置网络环境
+configure_network() {
+    print_step "10" "配置网络环境"
+
+    echo "请选择您的网络环境:"
+    echo ""
+    echo "  1) 固定公网IP - 服务器有固定的公网IP地址"
+    echo "  2) NAT环境   - 位于路由器/NAT网关后面（家庭网络、部分云服务器）"
+    echo "  3) 自动检测  - 每次启动时自动检测公网IP"
+    echo ""
+
+    while true; do
+        read -p "请选择 [1-3] (默认: 3): " network_choice
+        network_choice=${network_choice:-3}
+
+        case $network_choice in
+            1)
+                # 固定公网IP - 检测并确认
+                echo ""
+                echo "正在检测您的公网IP..."
+                detected_ip=""
+                for service in "https://api.ipify.org" "https://ifconfig.me" "https://icanhazip.com"; do
+                    detected_ip=$(curl -s --connect-timeout 3 --max-time 5 "$service" 2>/dev/null | tr -d '[:space:]')
+                    if [[ "$detected_ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                        break
+                    fi
+                done
+
+                if [ -n "$detected_ip" ]; then
+                    echo "检测到IP: $detected_ip"
+                    read -p "使用此IP? (y/n, 或输入其他IP): " ip_confirm
+                    if [ "$ip_confirm" = "y" ] || [ "$ip_confirm" = "Y" ] || [ -z "$ip_confirm" ]; then
+                        NAT_MODE="extip"
+                        PUBLIC_IP="$detected_ip"
+                    elif [[ "$ip_confirm" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                        NAT_MODE="extip"
+                        PUBLIC_IP="$ip_confirm"
+                    else
+                        echo "输入无效，请重试"
+                        continue
+                    fi
+                else
+                    read -p "无法检测公网IP，请手动输入您的公网IP: " PUBLIC_IP
+                    if [[ "$PUBLIC_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                        NAT_MODE="extip"
+                    else
+                        print_error "IP地址格式无效"
+                        continue
+                    fi
+                fi
+                break
+                ;;
+            2)
+                NAT_MODE="any"
+                PUBLIC_IP=""
+                print_info "已选择NAT模式，将使用UPnP/NAT-PMP自动端口映射"
+                break
+                ;;
+            3)
+                NAT_MODE="auto"
+                PUBLIC_IP=""
+                print_info "自动检测模式，每次启动时检测公网IP"
+                break
+                ;;
+            *)
+                echo "选择无效，请输入 1、2 或 3"
+                ;;
+        esac
+    done
+
+    echo ""
+    print_success "网络环境已配置: $NAT_MODE"
+}
+
 # 生成启动脚本
 generate_start_script() {
-    print_step "10" "生成启动脚本"
+    print_step "11" "生成启动脚本"
 
     local start_script="$INSTALL_DIR/start-node.sh"
 
@@ -624,70 +698,91 @@ if [ "\$HTTP_ADDR" == "0.0.0.0" ] || [ "\$WS_ADDR" == "0.0.0.0" ]; then
     echo ""
 fi
 
-# ==================== 检测公网IP ====================
+# ==================== NAT 配置 ====================
+NAT_MODE="$NAT_MODE"
+EOF
+
+    # 根据用户选择生成不同的NAT配置
+    if [ "$NAT_MODE" = "extip" ]; then
+        cat >> "$start_script" << EOF
+# 固定公网IP模式
+NAT_CONFIG="extip:$PUBLIC_IP"
+echo "NAT配置: \$NAT_CONFIG (固定公网IP)"
+EOF
+    elif [ "$NAT_MODE" = "any" ]; then
+        cat >> "$start_script" << EOF
+# NAT环境模式 (UPnP/NAT-PMP)
+NAT_CONFIG="any"
+echo "NAT配置: \$NAT_CONFIG (自动端口映射)"
+EOF
+    else
+        # 自动检测模式
+        cat >> "$start_script" << 'AUTODETECT'
+# 自动检测公网IP
 detect_public_ip() {
     local ip=""
-    # 尝试多个服务获取公网IP
     for service in "https://api.ipify.org" "https://ifconfig.me" "https://icanhazip.com" "https://ipecho.net/plain"; do
-        ip=\$(curl -s --connect-timeout 3 --max-time 5 "\$service" 2>/dev/null | tr -d '[:space:]')
-        # 验证IPv4格式
-        if [[ "\$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\$ ]]; then
-            echo "\$ip"
+        ip=$(curl -s --connect-timeout 3 --max-time 5 "$service" 2>/dev/null | tr -d '[:space:]')
+        if [[ "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "$ip"
             return 0
         fi
     done
     return 1
 }
 
-# ==================== 启动节点 ====================
-echo "正在启动节点..."
-
-# 检测公网IP用于NAT配置
 echo "正在检测公网IP..."
-PUBLIC_IP=\$(detect_public_ip)
-if [ -n "\$PUBLIC_IP" ]; then
-    NAT_CONFIG="extip:\$PUBLIC_IP"
-    echo "  检测到公网IP: \$PUBLIC_IP"
-    echo "  NAT配置: \$NAT_CONFIG"
+DETECTED_IP=$(detect_public_ip)
+if [ -n "$DETECTED_IP" ]; then
+    NAT_CONFIG="extip:$DETECTED_IP"
+    echo "  检测到公网IP: $DETECTED_IP"
+    echo "  NAT配置: $NAT_CONFIG"
 else
     NAT_CONFIG="any"
     echo "  未检测到公网IP，使用 NAT: any"
 fi
+AUTODETECT
+    fi
+
+    cat >> "$start_script" << 'EOF'
 echo ""
+
+# ==================== 启动节点 ====================
+echo "正在启动节点..."
 
 # 构建启动参数
 START_ARGS=(
-    --datadir "\$DATADIR"
-    --networkid "\$NETWORK_ID"
+    --datadir "$DATADIR"
+    --networkid "$NETWORK_ID"
     --syncmode "full"
     --gcmode "archive"
-    --cache "\$CACHE_SIZE"
+    --cache "$CACHE_SIZE"
     --http
-    --http.addr "\$HTTP_ADDR"
-    --http.port "\$HTTP_PORT"
-    --http.api "\$HTTP_API"
+    --http.addr "$HTTP_ADDR"
+    --http.port "$HTTP_PORT"
+    --http.api "$HTTP_API"
     --http.corsdomain "*"
     --http.vhosts "*"
     --ws
-    --ws.addr "\$WS_ADDR"
-    --ws.port "\$WS_PORT"
-    --ws.api "\$WS_API"
+    --ws.addr "$WS_ADDR"
+    --ws.port "$WS_PORT"
+    --ws.api "$WS_API"
     --ws.origins "*"
     --authrpc.vhosts "*"
     --hybrid.liveness
-    --hybrid.withdrawal "\$WITHDRAWAL_ADDRESS"
-    --hybrid.blskey "\$BLS_KEYFILE"
-    --hybrid.blspassword "\$BLS_PASSWORD"
-    --bootnodes "\$BOOTNODES"
-    --log.file "\$LOG_FILE"
-    --log.maxsize "\$LOG_MAXSIZE"
-    --log.maxbackups "\$LOG_MAXBACKUPS"
+    --hybrid.withdrawal "$WITHDRAWAL_ADDRESS"
+    --hybrid.blskey "$BLS_KEYFILE"
+    --hybrid.blspassword "$BLS_PASSWORD"
+    --bootnodes "$BOOTNODES"
+    --log.file "$LOG_FILE"
+    --log.maxsize "$LOG_MAXSIZE"
+    --log.maxbackups "$LOG_MAXBACKUPS"
     --log.compress
-    --nat "\$NAT_CONFIG"
+    --nat "$NAT_CONFIG"
 )
 
 # 启动 geth
-exec geth "\${START_ARGS[@]}"
+exec geth "${START_ARGS[@]}"
 EOF
 
     chmod +x "$start_script"
@@ -785,6 +880,7 @@ main() {
     init_blockchain
     configure_withdrawal
     get_bootnodes
+    configure_network
     generate_start_script
 
     show_completion

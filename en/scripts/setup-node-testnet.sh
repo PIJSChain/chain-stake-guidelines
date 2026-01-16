@@ -542,9 +542,83 @@ get_bootnodes() {
     print_success "Boot nodes configured"
 }
 
+# Configure network environment
+configure_network() {
+    print_step "10" "Configuring network environment"
+
+    echo "Please select your network environment:"
+    echo ""
+    echo "  1) Fixed public IP - Server has a static public IP address"
+    echo "  2) NAT environment - Behind router/NAT gateway (home network, some cloud instances)"
+    echo "  3) Auto detect    - Automatically detect public IP on each startup"
+    echo ""
+
+    while true; do
+        read -p "Please select [1-3] (default: 3): " network_choice
+        network_choice=${network_choice:-3}
+
+        case $network_choice in
+            1)
+                # Fixed public IP - detect and confirm
+                echo ""
+                echo "Detecting your public IP..."
+                detected_ip=""
+                for service in "https://api.ipify.org" "https://ifconfig.me" "https://icanhazip.com"; do
+                    detected_ip=$(curl -s --connect-timeout 3 --max-time 5 "$service" 2>/dev/null | tr -d '[:space:]')
+                    if [[ "$detected_ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                        break
+                    fi
+                done
+
+                if [ -n "$detected_ip" ]; then
+                    echo "Detected IP: $detected_ip"
+                    read -p "Use this IP? (y/n, or enter a different IP): " ip_confirm
+                    if [ "$ip_confirm" = "y" ] || [ "$ip_confirm" = "Y" ] || [ -z "$ip_confirm" ]; then
+                        NAT_MODE="extip"
+                        PUBLIC_IP="$detected_ip"
+                    elif [[ "$ip_confirm" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                        NAT_MODE="extip"
+                        PUBLIC_IP="$ip_confirm"
+                    else
+                        echo "Invalid input, please try again"
+                        continue
+                    fi
+                else
+                    read -p "Could not detect public IP. Please enter your public IP: " PUBLIC_IP
+                    if [[ "$PUBLIC_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                        NAT_MODE="extip"
+                    else
+                        print_error "Invalid IP address format"
+                        continue
+                    fi
+                fi
+                break
+                ;;
+            2)
+                NAT_MODE="any"
+                PUBLIC_IP=""
+                print_info "NAT mode selected, will use UPnP/NAT-PMP for automatic port mapping"
+                break
+                ;;
+            3)
+                NAT_MODE="auto"
+                PUBLIC_IP=""
+                print_info "Auto detect mode, will check for public IP on each startup"
+                break
+                ;;
+            *)
+                echo "Invalid selection, please enter 1, 2, or 3"
+                ;;
+        esac
+    done
+
+    echo ""
+    print_success "Network environment configured: $NAT_MODE"
+}
+
 # Generate startup script
 generate_start_script() {
-    print_step "10" "Generating startup scripts"
+    print_step "11" "Generating startup scripts"
 
     local start_script="$INSTALL_DIR/start-node.sh"
 
@@ -624,66 +698,87 @@ if [ "\$HTTP_ADDR" == "0.0.0.0" ] || [ "\$WS_ADDR" == "0.0.0.0" ]; then
     echo ""
 fi
 
-# ==================== Detect Public IP ====================
+# ==================== NAT Configuration ====================
+NAT_MODE="$NAT_MODE"
+EOF
+
+    # Generate NAT configuration based on user's choice
+    if [ "$NAT_MODE" = "extip" ]; then
+        cat >> "$start_script" << EOF
+# Fixed public IP mode
+NAT_CONFIG="extip:$PUBLIC_IP"
+echo "NAT config: \$NAT_CONFIG (fixed public IP)"
+EOF
+    elif [ "$NAT_MODE" = "any" ]; then
+        cat >> "$start_script" << EOF
+# NAT environment mode (UPnP/NAT-PMP)
+NAT_CONFIG="any"
+echo "NAT config: \$NAT_CONFIG (automatic port mapping)"
+EOF
+    else
+        # Auto detect mode
+        cat >> "$start_script" << 'AUTODETECT'
+# Auto detect public IP
 detect_public_ip() {
     local ip=""
-    # Try multiple services to get public IP
     for service in "https://api.ipify.org" "https://ifconfig.me" "https://icanhazip.com" "https://ipecho.net/plain"; do
-        ip=\$(curl -s --connect-timeout 3 --max-time 5 "\$service" 2>/dev/null | tr -d '[:space:]')
-        # Validate IPv4 format
-        if [[ "\$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\$ ]]; then
-            echo "\$ip"
+        ip=$(curl -s --connect-timeout 3 --max-time 5 "$service" 2>/dev/null | tr -d '[:space:]')
+        if [[ "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "$ip"
             return 0
         fi
     done
     return 1
 }
 
-# ==================== Start Node ====================
-echo "Starting node..."
-
-# Detect public IP for NAT configuration
 echo "Detecting public IP..."
-PUBLIC_IP=\$(detect_public_ip)
-if [ -n "\$PUBLIC_IP" ]; then
-    NAT_CONFIG="extip:\$PUBLIC_IP"
-    echo "  Public IP detected: \$PUBLIC_IP"
-    echo "  NAT config: \$NAT_CONFIG"
+DETECTED_IP=$(detect_public_ip)
+if [ -n "$DETECTED_IP" ]; then
+    NAT_CONFIG="extip:$DETECTED_IP"
+    echo "  Public IP detected: $DETECTED_IP"
+    echo "  NAT config: $NAT_CONFIG"
 else
     NAT_CONFIG="any"
     echo "  No public IP detected, using NAT: any"
 fi
+AUTODETECT
+    fi
+
+    cat >> "$start_script" << 'EOF'
 echo ""
+
+# ==================== Start Node ====================
+echo "Starting node..."
 
 # Build startup arguments
 START_ARGS=(
-    --datadir "\$DATADIR"
-    --networkid "\$NETWORK_ID"
+    --datadir "$DATADIR"
+    --networkid "$NETWORK_ID"
     --syncmode "full"
     --gcmode "archive"
-    --cache "\$CACHE_SIZE"
+    --cache "$CACHE_SIZE"
     --http
-    --http.addr "\$HTTP_ADDR"
-    --http.port "\$HTTP_PORT"
-    --http.api "\$HTTP_API"
+    --http.addr "$HTTP_ADDR"
+    --http.port "$HTTP_PORT"
+    --http.api "$HTTP_API"
     --http.corsdomain "*"
     --http.vhosts "*"
     --ws
-    --ws.addr "\$WS_ADDR"
-    --ws.port "\$WS_PORT"
-    --ws.api "\$WS_API"
+    --ws.addr "$WS_ADDR"
+    --ws.port "$WS_PORT"
+    --ws.api "$WS_API"
     --ws.origins "*"
     --authrpc.vhosts "*"
     --hybrid.liveness
-    --hybrid.withdrawal "\$WITHDRAWAL_ADDRESS"
-    --hybrid.blskey "\$BLS_KEYFILE"
-    --hybrid.blspassword "\$BLS_PASSWORD"
-    --bootnodes "\$BOOTNODES"
-    --log.file "\$LOG_FILE"
-    --log.maxsize "\$LOG_MAXSIZE"
-    --log.maxbackups "\$LOG_MAXBACKUPS"
+    --hybrid.withdrawal "$WITHDRAWAL_ADDRESS"
+    --hybrid.blskey "$BLS_KEYFILE"
+    --hybrid.blspassword "$BLS_PASSWORD"
+    --bootnodes "$BOOTNODES"
+    --log.file "$LOG_FILE"
+    --log.maxsize "$LOG_MAXSIZE"
+    --log.maxbackups "$LOG_MAXBACKUPS"
     --log.compress
-    --nat "\$NAT_CONFIG"
+    --nat "$NAT_CONFIG"
 )
 
 # Start geth
@@ -785,6 +880,7 @@ main() {
     init_blockchain
     configure_withdrawal
     get_bootnodes
+    configure_network
     generate_start_script
 
     show_completion
