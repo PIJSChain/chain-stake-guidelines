@@ -91,9 +91,26 @@ detect_platform() {
 
 # Check if node is running
 check_node_running() {
-    if pgrep -f "geth.*--datadir.*$INSTALL_DIR" > /dev/null 2>&1; then
-        return 0
+    # Use ps + grep combo to avoid pgrep -f matching the script itself
+    # First check if there's a geth process, then check if it uses target directory
+    local geth_pids=$(pgrep -x geth 2>/dev/null)
+    if [ -z "$geth_pids" ]; then
+        return 1
     fi
+
+    # Check if any geth process uses the target directory
+    for pid in $geth_pids; do
+        if [ -f "/proc/$pid/cmdline" ]; then
+            if tr '\0' ' ' < "/proc/$pid/cmdline" | grep -q "$INSTALL_DIR"; then
+                return 0
+            fi
+        else
+            # macOS compatibility: use ps
+            if ps -p "$pid" -o args= 2>/dev/null | grep -q "$INSTALL_DIR"; then
+                return 0
+            fi
+        fi
+    done
     return 1
 }
 
@@ -103,7 +120,21 @@ stop_node() {
 
     if check_node_running; then
         print_warn "Node is currently running, stopping..."
-        pkill -f "geth.*--datadir.*$INSTALL_DIR" || true
+
+        # Only stop geth processes that use the target directory
+        local geth_pids=$(pgrep -x geth 2>/dev/null)
+        for pid in $geth_pids; do
+            local cmdline=""
+            if [ -f "/proc/$pid/cmdline" ]; then
+                cmdline=$(tr '\0' ' ' < "/proc/$pid/cmdline")
+            else
+                cmdline=$(ps -p "$pid" -o args= 2>/dev/null)
+            fi
+            if echo "$cmdline" | grep -q "$INSTALL_DIR"; then
+                kill "$pid" 2>/dev/null || true
+            fi
+        done
+
         sleep 3
 
         if check_node_running; then

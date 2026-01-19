@@ -91,9 +91,26 @@ detect_platform() {
 
 # 检查节点是否运行
 check_node_running() {
-    if pgrep -f "geth.*--datadir.*$INSTALL_DIR" > /dev/null 2>&1; then
-        return 0
+    # 使用 ps + grep 组合，避免 pgrep -f 匹配到脚本自身
+    # 先检查是否有 geth 进程，再检查是否包含目标目录
+    local geth_pids=$(pgrep -x geth 2>/dev/null)
+    if [ -z "$geth_pids" ]; then
+        return 1
     fi
+
+    # 检查是否有 geth 进程使用了目标目录
+    for pid in $geth_pids; do
+        if [ -f "/proc/$pid/cmdline" ]; then
+            if tr '\0' ' ' < "/proc/$pid/cmdline" | grep -q "$INSTALL_DIR"; then
+                return 0
+            fi
+        else
+            # macOS 兼容：使用 ps
+            if ps -p "$pid" -o args= 2>/dev/null | grep -q "$INSTALL_DIR"; then
+                return 0
+            fi
+        fi
+    done
     return 1
 }
 
@@ -103,7 +120,21 @@ stop_node() {
 
     if check_node_running; then
         print_warn "节点正在运行，正在停止..."
-        pkill -f "geth.*--datadir.*$INSTALL_DIR" || true
+
+        # 只停止进程名为 geth 且使用目标目录的进程
+        local geth_pids=$(pgrep -x geth 2>/dev/null)
+        for pid in $geth_pids; do
+            local cmdline=""
+            if [ -f "/proc/$pid/cmdline" ]; then
+                cmdline=$(tr '\0' ' ' < "/proc/$pid/cmdline")
+            else
+                cmdline=$(ps -p "$pid" -o args= 2>/dev/null)
+            fi
+            if echo "$cmdline" | grep -q "$INSTALL_DIR"; then
+                kill "$pid" 2>/dev/null || true
+            fi
+        done
+
         sleep 3
 
         if check_node_running; then
