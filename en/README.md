@@ -20,9 +20,117 @@ This guide covers the complete process of deploying a PIJS consensus node, inclu
 
 | Resource | Download URL |
 |----------|--------------|
-| Node Binary | https://github.com/PIJSChain/pijs/releases/tag/v1.25.6h |
-| Genesis Config | https://github.com/PIJSChain/pijs/releases/download/v1.25.6h/genesis.json |
-| Bootstrap Nodes | https://github.com/PIJSChain/pijs/releases/download/v1.25.6h/bootnodes.txt |
+| Node Binary | https://github.com/PIJSChain/pijs/releases/tag/v1.25.6k |
+| Genesis Config | https://github.com/PIJSChain/pijs/releases/download/v1.25.6k/genesis.json |
+| Bootstrap Nodes | https://github.com/PIJSChain/pijs/releases/download/v1.25.6k/bootnodes.txt |
+
+---
+
+## Node Upgrade (For Existing Nodes)
+
+> If you are deploying a new node, skip this section and go to [Prerequisites](#prerequisites)
+
+When a new version is released (especially for hard fork upgrades), existing nodes need to upgrade client and re-initialize chain config.
+
+### Upgrade Script (Recommended)
+
+We provide an automated upgrade script that handles client download, backup, and chain config update.
+
+#### Linux / macOS
+
+```bash
+# Download upgrade script
+curl -LO https://raw.githubusercontent.com/PIJSChain/chain-stake-guidelines/main/en/scripts/upgrade-node.sh
+
+# Add execute permission
+chmod +x upgrade-node.sh
+
+# Run script (follow prompts)
+./upgrade-node.sh
+```
+
+#### Windows PowerShell
+
+```powershell
+# Download upgrade script
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/PIJSChain/chain-stake-guidelines/main/en/scripts/upgrade-node.ps1" -OutFile "upgrade-node.ps1"
+
+# Allow script execution (if needed)
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+# Run script
+.\upgrade-node.ps1
+```
+
+### Manual Upgrade Steps
+
+If you prefer manual upgrade:
+
+1. **Stop node**
+
+   ```bash
+   # Stop running node
+   pkill -f "geth.*--datadir.*pijs-node"
+   ```
+
+2. **Backup current client**
+
+   ```bash
+   cd ~/pijs-node
+   mkdir -p backup
+   cp bin/geth backup/geth.backup.$(date +%Y%m%d%H%M%S)
+   ```
+
+3. **Download new client**
+
+   Download the appropriate version for your platform from:
+   <https://github.com/PIJSChain/pijs/releases/tag/v1.25.6k>
+
+   ```bash
+   # Example for Linux x86_64
+   cd ~/pijs-node/bin
+   curl -LO https://github.com/PIJSChain/pijs/releases/download/v1.25.6k/geth-linux-amd64
+   mv geth-linux-amd64 geth
+   chmod +x geth
+   ```
+
+4. **Download new genesis config**
+
+   ```bash
+   cd ~/pijs-node
+   curl -LO https://github.com/PIJSChain/pijs/releases/download/v1.25.6k/genesis.json
+   ```
+
+5. **Re-initialize chain config (for hard fork)**
+
+   > **Important**: This only updates chain config, does NOT delete existing chain data
+
+   ```bash
+   cd ~/pijs-node
+   ./bin/geth init --datadir data genesis.json
+   ```
+
+6. **Restart node**
+
+   ```bash
+   ./start-node.sh
+   # Or background start
+   ./start-node-bg.sh
+   ```
+
+### Verify Upgrade
+
+After restart, verify the upgrade:
+
+```bash
+# Check version
+./bin/geth version
+
+# Connect to console and check sync status
+geth attach ./data/geth.ipc
+> eth.syncing
+> eth.blockNumber
+```
 
 ---
 
@@ -104,15 +212,15 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 
 Visit the GitHub Release page to download the archive for your platform:
 
-**Download URL**: <https://github.com/PIJSChain/pijs/releases/tag/v1.25.6h>
+**Download URL**: <https://github.com/PIJSChain/pijs/releases/tag/v1.25.6k>
 
 | Platform | Filename |
 |----------|----------|
-| Linux x86_64 | geth-v1.25.6h-linux-amd64.tar.gz |
-| Linux ARM64 | geth-v1.25.6h-linux-arm64.tar.gz |
-| macOS Intel | geth-v1.25.6h-darwin-amd64.tar.gz |
-| macOS Apple Silicon | geth-v1.25.6h-darwin-arm64.tar.gz |
-| Windows x86_64 | geth-v1.25.6h-windows-amd64.tar.gz |
+| Linux x86_64 | geth-v1.25.6k-linux-amd64.tar.gz |
+| Linux ARM64 | geth-v1.25.6k-linux-arm64.tar.gz |
+| macOS Intel | geth-v1.25.6k-darwin-amd64.tar.gz |
+| macOS Apple Silicon | geth-v1.25.6k-darwin-arm64.tar.gz |
+| Windows x86_64 | geth-v1.25.6k-windows-amd64.tar.gz |
 
 > **Important**: The archive contains `geth` and `bootnode` binaries, both need to be added to system PATH
 
@@ -120,10 +228,10 @@ Visit the GitHub Release page to download the archive for your platform:
 
 ```bash
 # Download
-wget https://github.com/PIJSChain/pijs/releases/download/v1.25.6h/geth-v1.25.6h-linux-amd64.tar.gz
+wget https://github.com/PIJSChain/pijs/releases/download/v1.25.6k/geth-v1.25.6k-linux-amd64.tar.gz
 
 # Extract
-tar -xzf geth-v1.25.6h-linux-amd64.tar.gz
+tar -xzf geth-v1.25.6k-linux-amd64.tar.gz
 
 # Move geth and bootnode to system path
 sudo mv geth bootnode /usr/local/bin/
@@ -136,8 +244,8 @@ bootnode --help
 #### Linux (ARM64)
 
 ```bash
-wget https://github.com/PIJSChain/pijs/releases/download/v1.25.6h/geth-v1.25.6h-linux-arm64.tar.gz
-tar -xzf geth-v1.25.6h-linux-arm64.tar.gz
+wget https://github.com/PIJSChain/pijs/releases/download/v1.25.6k/geth-v1.25.6k-linux-arm64.tar.gz
+tar -xzf geth-v1.25.6k-linux-arm64.tar.gz
 sudo mv geth bootnode /usr/local/bin/
 geth version
 ```
@@ -145,8 +253,8 @@ geth version
 #### macOS (Intel)
 
 ```bash
-curl -LO https://github.com/PIJSChain/pijs/releases/download/v1.25.6h/geth-v1.25.6h-darwin-amd64.tar.gz
-tar -xzf geth-v1.25.6h-darwin-amd64.tar.gz
+curl -LO https://github.com/PIJSChain/pijs/releases/download/v1.25.6k/geth-v1.25.6k-darwin-amd64.tar.gz
+tar -xzf geth-v1.25.6k-darwin-amd64.tar.gz
 sudo mv geth bootnode /usr/local/bin/
 geth version
 ```
@@ -154,15 +262,15 @@ geth version
 #### macOS (Apple Silicon)
 
 ```bash
-curl -LO https://github.com/PIJSChain/pijs/releases/download/v1.25.6h/geth-v1.25.6h-darwin-arm64.tar.gz
-tar -xzf geth-v1.25.6h-darwin-arm64.tar.gz
+curl -LO https://github.com/PIJSChain/pijs/releases/download/v1.25.6k/geth-v1.25.6k-darwin-arm64.tar.gz
+tar -xzf geth-v1.25.6k-darwin-arm64.tar.gz
 sudo mv geth bootnode /usr/local/bin/
 geth version
 ```
 
 #### Windows (x86_64)
 
-1. Download `geth-v1.25.6h-windows-amd64.tar.gz`
+1. Download `geth-v1.25.6k-windows-amd64.tar.gz`
 2. Extract to a directory, e.g., `C:\pijs-node\bin\`
 3. Add the directory to system PATH:
    - Right-click "This PC" → "Properties" → "Advanced system settings" → "Environment Variables"
@@ -180,10 +288,10 @@ bootnode --help
 
 ```bash
 # Linux/macOS
-curl -LO https://github.com/PIJSChain/pijs/releases/download/v1.25.6h/genesis.json
+curl -LO https://github.com/PIJSChain/pijs/releases/download/v1.25.6k/genesis.json
 
 # Windows PowerShell
-Invoke-WebRequest -Uri "https://github.com/PIJSChain/pijs/releases/download/v1.25.6h/genesis.json" -OutFile "genesis.json"
+Invoke-WebRequest -Uri "https://github.com/PIJSChain/pijs/releases/download/v1.25.6k/genesis.json" -OutFile "genesis.json"
 ```
 
 #### 1.3 Get Bootstrap Node Addresses
@@ -192,7 +300,7 @@ Bootstrap nodes are used to connect to the PIJS network:
 
 ```bash
 # Download bootstrap node list
-curl -LO https://github.com/PIJSChain/pijs/releases/download/v1.25.6h/bootnodes.txt
+curl -LO https://github.com/PIJSChain/pijs/releases/download/v1.25.6k/bootnodes.txt
 
 # Or use the following addresses directly:
 enode://6f05512feacca0b15cd94ed2165e8f96b16cf346cb16ba7810a37bea05851b3887ee8ef3ee790090cb3352f37a710bcd035d6b0bfd8961287751532c2b0717fb@54.169.152.20:30303

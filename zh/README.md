@@ -20,9 +20,117 @@
 
 | 资源 | 下载地址 |
 |------|---------|
-| 节点程序 | https://github.com/PIJSChain/pijs/releases/tag/v1.25.6h |
-| 创世配置 | https://github.com/PIJSChain/pijs/releases/download/v1.25.6h/genesis.json |
-| 引导节点 | https://github.com/PIJSChain/pijs/releases/download/v1.25.6h/bootnodes.txt |
+| 节点程序 | https://github.com/PIJSChain/pijs/releases/tag/v1.25.6k |
+| 创世配置 | https://github.com/PIJSChain/pijs/releases/download/v1.25.6k/genesis.json |
+| 引导节点 | https://github.com/PIJSChain/pijs/releases/download/v1.25.6k/bootnodes.txt |
+
+---
+
+## 节点升级（已有节点）
+
+> 如果您是新部署节点，请跳过此章节，直接查看 [开始前的准备](#开始前的准备)
+
+当发布新版本时（特别是硬分叉升级），已有节点需要升级客户端并重新初始化链配置。
+
+### 使用升级脚本（推荐）
+
+我们提供了自动化升级脚本，可以自动完成客户端下载、备份和链配置更新。
+
+#### Linux / macOS
+
+```bash
+# 下载升级脚本
+curl -LO https://raw.githubusercontent.com/PIJSChain/chain-stake-guidelines/main/zh/scripts/upgrade-node.sh
+
+# 添加执行权限
+chmod +x upgrade-node.sh
+
+# 运行脚本（按提示操作）
+./upgrade-node.sh
+```
+
+#### Windows PowerShell
+
+```powershell
+# 下载升级脚本
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/PIJSChain/chain-stake-guidelines/main/zh/scripts/upgrade-node.ps1" -OutFile "upgrade-node.ps1"
+
+# 允许脚本执行（如需要）
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+# 运行脚本
+.\upgrade-node.ps1
+```
+
+### 手动升级步骤
+
+如果您希望手动升级：
+
+1. **停止节点**
+
+   ```bash
+   # 停止运行中的节点
+   pkill -f "geth.*--datadir.*pijs-node"
+   ```
+
+2. **备份当前客户端**
+
+   ```bash
+   cd ~/pijs-node
+   mkdir -p backup
+   cp bin/geth backup/geth.backup.$(date +%Y%m%d%H%M%S)
+   ```
+
+3. **下载新客户端**
+
+   从以下地址下载对应平台的版本：
+   <https://github.com/PIJSChain/pijs/releases/tag/v1.25.6k>
+
+   ```bash
+   # 以 Linux x86_64 为例
+   cd ~/pijs-node/bin
+   curl -LO https://github.com/PIJSChain/pijs/releases/download/v1.25.6k/geth-linux-amd64
+   mv geth-linux-amd64 geth
+   chmod +x geth
+   ```
+
+4. **下载新的创世配置**
+
+   ```bash
+   cd ~/pijs-node
+   curl -LO https://github.com/PIJSChain/pijs/releases/download/v1.25.6k/genesis.json
+   ```
+
+5. **重新初始化链配置（用于硬分叉）**
+
+   > **重要**：此操作仅更新链配置，不会删除现有链数据
+
+   ```bash
+   cd ~/pijs-node
+   ./bin/geth init --datadir data genesis.json
+   ```
+
+6. **重启节点**
+
+   ```bash
+   ./start-node.sh
+   # 或后台启动
+   ./start-node-bg.sh
+   ```
+
+### 验证升级
+
+重启后，验证升级是否成功：
+
+```bash
+# 检查版本
+./bin/geth version
+
+# 连接控制台检查同步状态
+geth attach ./data/geth.ipc
+> eth.syncing
+> eth.blockNumber
+```
 
 ---
 
@@ -104,15 +212,15 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 
 访问 GitHub Release 页面下载对应平台的压缩包：
 
-**下载地址**: <https://github.com/PIJSChain/pijs/releases/tag/v1.25.6h>
+**下载地址**: <https://github.com/PIJSChain/pijs/releases/tag/v1.25.6k>
 
 | 平台 | 文件名 |
 | ---- | ------ |
-| Linux x86_64 | geth-v1.25.6h-linux-amd64.tar.gz |
-| Linux ARM64 | geth-v1.25.6h-linux-arm64.tar.gz |
-| macOS Intel | geth-v1.25.6h-darwin-amd64.tar.gz |
-| macOS Apple Silicon | geth-v1.25.6h-darwin-arm64.tar.gz |
-| Windows x86_64 | geth-v1.25.6h-windows-amd64.tar.gz |
+| Linux x86_64 | geth-v1.25.6k-linux-amd64.tar.gz |
+| Linux ARM64 | geth-v1.25.6k-linux-arm64.tar.gz |
+| macOS Intel | geth-v1.25.6k-darwin-amd64.tar.gz |
+| macOS Apple Silicon | geth-v1.25.6k-darwin-arm64.tar.gz |
+| Windows x86_64 | geth-v1.25.6k-windows-amd64.tar.gz |
 
 > **重要**: 压缩包内包含 `geth` 和 `bootnode` 等二进制文件，都需要添加到系统 PATH 中
 
@@ -120,10 +228,10 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 
 ```bash
 # 下载
-wget https://github.com/PIJSChain/pijs/releases/download/v1.25.6h/geth-v1.25.6h-linux-amd64.tar.gz
+wget https://github.com/PIJSChain/pijs/releases/download/v1.25.6k/geth-v1.25.6k-linux-amd64.tar.gz
 
 # 解压
-tar -xzf geth-v1.25.6h-linux-amd64.tar.gz
+tar -xzf geth-v1.25.6k-linux-amd64.tar.gz
 
 # 将 geth 和 bootnode 移动到系统路径
 sudo mv geth bootnode /usr/local/bin/
@@ -136,8 +244,8 @@ bootnode --help
 #### Linux (ARM64)
 
 ```bash
-wget https://github.com/PIJSChain/pijs/releases/download/v1.25.6h/geth-v1.25.6h-linux-arm64.tar.gz
-tar -xzf geth-v1.25.6h-linux-arm64.tar.gz
+wget https://github.com/PIJSChain/pijs/releases/download/v1.25.6k/geth-v1.25.6k-linux-arm64.tar.gz
+tar -xzf geth-v1.25.6k-linux-arm64.tar.gz
 sudo mv geth bootnode /usr/local/bin/
 geth version
 ```
@@ -145,8 +253,8 @@ geth version
 #### macOS (Intel)
 
 ```bash
-curl -LO https://github.com/PIJSChain/pijs/releases/download/v1.25.6h/geth-v1.25.6h-darwin-amd64.tar.gz
-tar -xzf geth-v1.25.6h-darwin-amd64.tar.gz
+curl -LO https://github.com/PIJSChain/pijs/releases/download/v1.25.6k/geth-v1.25.6k-darwin-amd64.tar.gz
+tar -xzf geth-v1.25.6k-darwin-amd64.tar.gz
 sudo mv geth bootnode /usr/local/bin/
 geth version
 ```
@@ -154,15 +262,15 @@ geth version
 #### macOS (Apple Silicon)
 
 ```bash
-curl -LO https://github.com/PIJSChain/pijs/releases/download/v1.25.6h/geth-v1.25.6h-darwin-arm64.tar.gz
-tar -xzf geth-v1.25.6h-darwin-arm64.tar.gz
+curl -LO https://github.com/PIJSChain/pijs/releases/download/v1.25.6k/geth-v1.25.6k-darwin-arm64.tar.gz
+tar -xzf geth-v1.25.6k-darwin-arm64.tar.gz
 sudo mv geth bootnode /usr/local/bin/
 geth version
 ```
 
 #### Windows (x86_64)
 
-1. 下载 `geth-v1.25.6h-windows-amd64.tar.gz`
+1. 下载 `geth-v1.25.6k-windows-amd64.tar.gz`
 2. 解压到目录，例如 `C:\pijs-node\bin\`
 3. 将该目录添加到系统 PATH 环境变量：
    - 右键「此电脑」→「属性」→「高级系统设置」→「环境变量」
@@ -180,10 +288,10 @@ bootnode --help
 
 ```bash
 # Linux/macOS
-curl -LO https://github.com/PIJSChain/pijs/releases/download/v1.25.6h/genesis.json
+curl -LO https://github.com/PIJSChain/pijs/releases/download/v1.25.6k/genesis.json
 
 # Windows PowerShell
-Invoke-WebRequest -Uri "https://github.com/PIJSChain/pijs/releases/download/v1.25.6h/genesis.json" -OutFile "genesis.json"
+Invoke-WebRequest -Uri "https://github.com/PIJSChain/pijs/releases/download/v1.25.6k/genesis.json" -OutFile "genesis.json"
 ```
 
 #### 1.3 获取引导节点地址
@@ -192,7 +300,7 @@ Invoke-WebRequest -Uri "https://github.com/PIJSChain/pijs/releases/download/v1.2
 
 ```bash
 # 下载引导节点列表
-curl -LO https://github.com/PIJSChain/pijs/releases/download/v1.25.6h/bootnodes.txt
+curl -LO https://github.com/PIJSChain/pijs/releases/download/v1.25.6k/bootnodes.txt
 
 # 或直接使用以下地址：
 enode://6f05512feacca0b15cd94ed2165e8f96b16cf346cb16ba7810a37bea05851b3887ee8ef3ee790090cb3352f37a710bcd035d6b0bfd8961287751532c2b0717fb@54.169.152.20:30303
