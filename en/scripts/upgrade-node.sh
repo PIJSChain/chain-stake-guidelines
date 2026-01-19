@@ -167,65 +167,78 @@ backup_client() {
 download_client() {
     print_step "3" "Downloading new client ($GETH_VERSION)"
 
-    local geth_filename="geth-${PLATFORM}"
-    local download_url="${GITHUB_RELEASE}/${geth_filename}"
+    local geth_tar="geth-${GETH_VERSION}-${PLATFORM}.tar.gz"
+    local download_url="${GITHUB_RELEASE}/${geth_tar}"
     local bin_dir="$INSTALL_DIR/bin"
-    local geth_path="$bin_dir/geth"
-    local temp_file="$bin_dir/geth.new"
 
     print_info "Downloading from: $download_url"
 
-    # Ensure directory exists
-    mkdir -p "$bin_dir"
+    # Change to install directory
+    cd "$INSTALL_DIR"
 
-    # Download to temp file
-    rm -f "$temp_file"
+    # Download archive
+    rm -f "$geth_tar"
 
     if command -v curl &> /dev/null; then
-        curl -L -o "$temp_file" "$download_url" --progress-bar
+        curl -L -o "$geth_tar" "$download_url" --progress-bar
     elif command -v wget &> /dev/null; then
-        wget -O "$temp_file" "$download_url" --show-progress
+        wget -O "$geth_tar" "$download_url" --show-progress
     else
         print_error "Neither curl nor wget found"
         exit 1
     fi
 
     # Verify download
-    if [ ! -f "$temp_file" ] || [ ! -s "$temp_file" ]; then
+    if [ ! -f "$geth_tar" ] || [ ! -s "$geth_tar" ]; then
         print_error "Download failed or file is empty"
         exit 1
     fi
 
-    # Verify it's a valid executable (ELF/Mach-O check)
-    local file_type=$(file "$temp_file" 2>/dev/null)
-    if ! echo "$file_type" | grep -qE "executable|ELF|Mach-O"; then
-        print_error "Downloaded file is not a valid executable"
+    # Verify it's a valid gzip archive
+    local file_type=$(file "$geth_tar" 2>/dev/null)
+    if ! echo "$file_type" | grep -qE "gzip|compressed"; then
+        print_error "Downloaded file is not a valid archive"
         print_error "File type: $file_type"
-        rm -f "$temp_file"
+        rm -f "$geth_tar"
         exit 1
     fi
 
-    # Remove old file and move new file
-    rm -f "$geth_path"
-    mv "$temp_file" "$geth_path"
-    chmod +x "$geth_path"
+    # Extract
+    print_info "Extracting files..."
+    tar -xzf "$geth_tar"
 
-    # If /usr/local/bin/geth exists, update it too
+    # Ensure bin directory exists
+    mkdir -p "$bin_dir"
+
+    # Move all binaries to bin directory
+    for binary in geth bootnode abigen clef evm rlpdump devp2p ethkey p2psim; do
+        if [ -f "$binary" ]; then
+            mv "$binary" "$bin_dir/"
+            chmod +x "$bin_dir/$binary"
+        fi
+    done
+
+    # Clean up archive
+    rm -f "$geth_tar"
+
+    # Update binaries in /usr/local/bin
     if [ -f "/usr/local/bin/geth" ]; then
         print_info "Detected /usr/local/bin/geth, updating..."
         if [ -w "/usr/local/bin" ]; then
-            cp "$geth_path" /usr/local/bin/geth
-            print_success "Updated /usr/local/bin/geth"
+            cp "$bin_dir/geth" /usr/local/bin/geth
+            [ -f "$bin_dir/bootnode" ] && cp "$bin_dir/bootnode" /usr/local/bin/bootnode
+            print_success "Updated binaries in /usr/local/bin"
         elif command -v sudo &> /dev/null; then
-            sudo cp "$geth_path" /usr/local/bin/geth
-            print_success "Updated /usr/local/bin/geth"
+            sudo cp "$bin_dir/geth" /usr/local/bin/geth
+            [ -f "$bin_dir/bootnode" ] && sudo cp "$bin_dir/bootnode" /usr/local/bin/bootnode
+            print_success "Updated binaries in /usr/local/bin"
         else
-            print_warn "Cannot update /usr/local/bin/geth, please copy manually"
+            print_warn "Cannot update /usr/local/bin, please copy manually"
         fi
     fi
 
     # Show version
-    local version=$("$geth_path" version 2>/dev/null | grep "Version:" | head -1 || echo "Unknown")
+    local version=$("$bin_dir/geth" version 2>/dev/null | grep "Version:" | head -1 || echo "Unknown")
     print_success "New client downloaded: $version"
 }
 
@@ -263,10 +276,10 @@ reinit_chain() {
     print_warn "This will update chain config only, existing chain data will be preserved"
     echo ""
 
-    # Run init with new genesis file (using absolute paths consistent with deployment script)
+    # Run init with new genesis file (consistent with deployment script)
     print_info "Running: geth init --datadir \"$INSTALL_DIR/data\" \"$INSTALL_DIR/genesis.json\""
 
-    "$INSTALL_DIR/bin/geth" init --datadir "$INSTALL_DIR/data" "$INSTALL_DIR/genesis.json"
+    geth init --datadir "$INSTALL_DIR/data" "$INSTALL_DIR/genesis.json"
 
     if [ $? -eq 0 ]; then
         print_success "Chain config updated successfully"

@@ -130,53 +130,62 @@ function Download-Client {
 
     Write-Step "3" "下载新客户端 ($GETH_VERSION)"
 
-    $gethFilename = "geth-windows-amd64.exe"
-    $downloadUrl = "$GITHUB_RELEASE/$gethFilename"
+    $arch = if ([Environment]::Is64BitOperatingSystem) { "amd64" } else { "386" }
+    $platform = "windows-$arch"
+    $gethTar = "geth-$GETH_VERSION-$platform.tar.gz"
+    $downloadUrl = "$GITHUB_RELEASE/$gethTar"
 
     Write-Info "下载地址: $downloadUrl"
 
-    $binDir = Join-Path $InstallDir "bin"
-    $gethPath = Join-Path $binDir "geth.exe"
-    $tempPath = Join-Path $binDir "geth.new.exe"
+    $downloadPath = Join-Path $InstallDir $gethTar
 
-    # 确保目录存在
-    if (-not (Test-Path $binDir)) {
-        New-Item -ItemType Directory -Path $binDir -Force | Out-Null
-    }
-
-    # 下载到临时文件
-    if (Test-Path $tempPath) {
-        Remove-Item $tempPath -Force
+    # 下载压缩包
+    if (Test-Path $downloadPath) {
+        Remove-Item $downloadPath -Force
     }
 
     try {
-        Invoke-WebRequest -Uri $downloadUrl -OutFile $tempPath -UseBasicParsing
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $downloadPath -UseBasicParsing
     } catch {
         Write-Error "下载失败: $_"
         exit 1
     }
 
     # 验证下载
-    if (-not (Test-Path $tempPath) -or (Get-Item $tempPath).Length -eq 0) {
+    if (-not (Test-Path $downloadPath) -or (Get-Item $downloadPath).Length -eq 0) {
         Write-Error "下载失败或文件为空"
         exit 1
     }
 
-    # 验证是否是有效的 PE 可执行文件（检查 MZ 头）
-    $bytes = [System.IO.File]::ReadAllBytes($tempPath)[0..1]
-    if ($bytes[0] -ne 0x4D -or $bytes[1] -ne 0x5A) {
-        Write-Error "下载的文件不是有效的 Windows 可执行文件"
-        Remove-Item $tempPath -Force
-        exit 1
+    # 解压
+    Write-Info "解压文件..."
+    Set-Location $InstallDir
+    tar -xzf $gethTar
+
+    # 创建 bin 目录
+    $binDir = Join-Path $InstallDir "bin"
+    if (-not (Test-Path $binDir)) {
+        New-Item -ItemType Directory -Path $binDir -Force | Out-Null
     }
 
-    # 删除旧文件并移动新文件
-    if (Test-Path $gethPath) {
-        Remove-Item $gethPath -Force
+    # 移动所有二进制文件到 bin 目录
+    $binaries = @("geth.exe", "bootnode.exe", "abigen.exe", "clef.exe", "evm.exe", "rlpdump.exe")
+    foreach ($binary in $binaries) {
+        $srcPath = Join-Path $InstallDir $binary
+        if (Test-Path $srcPath) {
+            $destPath = Join-Path $binDir $binary
+            if (Test-Path $destPath) {
+                Remove-Item $destPath -Force
+            }
+            Move-Item $srcPath $destPath -Force
+        }
     }
-    Move-Item $tempPath $gethPath -Force
+
+    # 清理压缩包
+    Remove-Item $downloadPath -Force
 
     # 显示版本
+    $gethPath = Join-Path $binDir "geth.exe"
     try {
         $version = & $gethPath version 2>&1 | Select-String "Version:" | Select-Object -First 1
         Write-Success "新客户端已下载: $version"

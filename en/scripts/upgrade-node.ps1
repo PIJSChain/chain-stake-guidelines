@@ -130,53 +130,62 @@ function Download-Client {
 
     Write-Step "3" "Downloading new client ($GETH_VERSION)"
 
-    $gethFilename = "geth-windows-amd64.exe"
-    $downloadUrl = "$GITHUB_RELEASE/$gethFilename"
+    $arch = if ([Environment]::Is64BitOperatingSystem) { "amd64" } else { "386" }
+    $platform = "windows-$arch"
+    $gethTar = "geth-$GETH_VERSION-$platform.tar.gz"
+    $downloadUrl = "$GITHUB_RELEASE/$gethTar"
 
     Write-Info "Downloading from: $downloadUrl"
 
-    $binDir = Join-Path $InstallDir "bin"
-    $gethPath = Join-Path $binDir "geth.exe"
-    $tempPath = Join-Path $binDir "geth.new.exe"
+    $downloadPath = Join-Path $InstallDir $gethTar
 
-    # Ensure directory exists
-    if (-not (Test-Path $binDir)) {
-        New-Item -ItemType Directory -Path $binDir -Force | Out-Null
-    }
-
-    # Download to temp file
-    if (Test-Path $tempPath) {
-        Remove-Item $tempPath -Force
+    # Download archive
+    if (Test-Path $downloadPath) {
+        Remove-Item $downloadPath -Force
     }
 
     try {
-        Invoke-WebRequest -Uri $downloadUrl -OutFile $tempPath -UseBasicParsing
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $downloadPath -UseBasicParsing
     } catch {
         Write-Error "Download failed: $_"
         exit 1
     }
 
     # Verify download
-    if (-not (Test-Path $tempPath) -or (Get-Item $tempPath).Length -eq 0) {
+    if (-not (Test-Path $downloadPath) -or (Get-Item $downloadPath).Length -eq 0) {
         Write-Error "Download failed or file is empty"
         exit 1
     }
 
-    # Verify it's a valid PE executable (check MZ header)
-    $bytes = [System.IO.File]::ReadAllBytes($tempPath)[0..1]
-    if ($bytes[0] -ne 0x4D -or $bytes[1] -ne 0x5A) {
-        Write-Error "Downloaded file is not a valid Windows executable"
-        Remove-Item $tempPath -Force
-        exit 1
+    # Extract
+    Write-Info "Extracting files..."
+    Set-Location $InstallDir
+    tar -xzf $gethTar
+
+    # Create bin directory
+    $binDir = Join-Path $InstallDir "bin"
+    if (-not (Test-Path $binDir)) {
+        New-Item -ItemType Directory -Path $binDir -Force | Out-Null
     }
 
-    # Remove old file and move new file
-    if (Test-Path $gethPath) {
-        Remove-Item $gethPath -Force
+    # Move all binaries to bin directory
+    $binaries = @("geth.exe", "bootnode.exe", "abigen.exe", "clef.exe", "evm.exe", "rlpdump.exe")
+    foreach ($binary in $binaries) {
+        $srcPath = Join-Path $InstallDir $binary
+        if (Test-Path $srcPath) {
+            $destPath = Join-Path $binDir $binary
+            if (Test-Path $destPath) {
+                Remove-Item $destPath -Force
+            }
+            Move-Item $srcPath $destPath -Force
+        }
     }
-    Move-Item $tempPath $gethPath -Force
+
+    # Clean up archive
+    Remove-Item $downloadPath -Force
 
     # Show version
+    $gethPath = Join-Path $binDir "geth.exe"
     try {
         $version = & $gethPath version 2>&1 | Select-String "Version:" | Select-Object -First 1
         Write-Success "New client downloaded: $version"
