@@ -137,24 +137,44 @@ function Download-Client {
 
     $binDir = Join-Path $InstallDir "bin"
     $gethPath = Join-Path $binDir "geth.exe"
+    $tempPath = Join-Path $binDir "geth.new.exe"
 
-    # Remove old file
-    if (Test-Path $gethPath) {
-        Remove-Item $gethPath -Force
+    # Ensure directory exists
+    if (-not (Test-Path $binDir)) {
+        New-Item -ItemType Directory -Path $binDir -Force | Out-Null
+    }
+
+    # Download to temp file
+    if (Test-Path $tempPath) {
+        Remove-Item $tempPath -Force
     }
 
     try {
-        Invoke-WebRequest -Uri $downloadUrl -OutFile $gethPath -UseBasicParsing
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $tempPath -UseBasicParsing
     } catch {
         Write-Error "Download failed: $_"
         exit 1
     }
 
     # Verify download
-    if (-not (Test-Path $gethPath) -or (Get-Item $gethPath).Length -eq 0) {
+    if (-not (Test-Path $tempPath) -or (Get-Item $tempPath).Length -eq 0) {
         Write-Error "Download failed or file is empty"
         exit 1
     }
+
+    # Verify it's a valid PE executable (check MZ header)
+    $bytes = [System.IO.File]::ReadAllBytes($tempPath)[0..1]
+    if ($bytes[0] -ne 0x4D -or $bytes[1] -ne 0x5A) {
+        Write-Error "Downloaded file is not a valid Windows executable"
+        Remove-Item $tempPath -Force
+        exit 1
+    }
+
+    # Remove old file and move new file
+    if (Test-Path $gethPath) {
+        Remove-Item $gethPath -Force
+    }
+    Move-Item $tempPath $gethPath -Force
 
     # Show version
     try {

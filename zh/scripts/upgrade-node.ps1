@@ -137,24 +137,44 @@ function Download-Client {
 
     $binDir = Join-Path $InstallDir "bin"
     $gethPath = Join-Path $binDir "geth.exe"
+    $tempPath = Join-Path $binDir "geth.new.exe"
 
-    # 删除旧文件
-    if (Test-Path $gethPath) {
-        Remove-Item $gethPath -Force
+    # 确保目录存在
+    if (-not (Test-Path $binDir)) {
+        New-Item -ItemType Directory -Path $binDir -Force | Out-Null
+    }
+
+    # 下载到临时文件
+    if (Test-Path $tempPath) {
+        Remove-Item $tempPath -Force
     }
 
     try {
-        Invoke-WebRequest -Uri $downloadUrl -OutFile $gethPath -UseBasicParsing
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $tempPath -UseBasicParsing
     } catch {
         Write-Error "下载失败: $_"
         exit 1
     }
 
     # 验证下载
-    if (-not (Test-Path $gethPath) -or (Get-Item $gethPath).Length -eq 0) {
+    if (-not (Test-Path $tempPath) -or (Get-Item $tempPath).Length -eq 0) {
         Write-Error "下载失败或文件为空"
         exit 1
     }
+
+    # 验证是否是有效的 PE 可执行文件（检查 MZ 头）
+    $bytes = [System.IO.File]::ReadAllBytes($tempPath)[0..1]
+    if ($bytes[0] -ne 0x4D -or $bytes[1] -ne 0x5A) {
+        Write-Error "下载的文件不是有效的 Windows 可执行文件"
+        Remove-Item $tempPath -Force
+        exit 1
+    }
+
+    # 删除旧文件并移动新文件
+    if (Test-Path $gethPath) {
+        Remove-Item $gethPath -Force
+    }
+    Move-Item $tempPath $gethPath -Force
 
     # 显示版本
     try {

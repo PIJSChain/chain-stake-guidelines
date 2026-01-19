@@ -169,33 +169,63 @@ download_client() {
 
     local geth_filename="geth-${PLATFORM}"
     local download_url="${GITHUB_RELEASE}/${geth_filename}"
+    local bin_dir="$INSTALL_DIR/bin"
+    local geth_path="$bin_dir/geth"
+    local temp_file="$bin_dir/geth.new"
 
     print_info "下载地址: $download_url"
 
-    cd "$INSTALL_DIR/bin"
+    # 确保目录存在
+    mkdir -p "$bin_dir"
 
-    # 删除旧文件
-    rm -f geth geth-*
+    # 下载到临时文件
+    rm -f "$temp_file"
 
     if command -v curl &> /dev/null; then
-        curl -L -o geth "$download_url" --progress-bar
+        curl -L -o "$temp_file" "$download_url" --progress-bar
     elif command -v wget &> /dev/null; then
-        wget -O geth "$download_url" --show-progress
+        wget -O "$temp_file" "$download_url" --show-progress
     else
         print_error "未找到 curl 或 wget"
         exit 1
     fi
 
-    chmod +x geth
-
     # 验证下载
-    if [ ! -f "geth" ] || [ ! -s "geth" ]; then
+    if [ ! -f "$temp_file" ] || [ ! -s "$temp_file" ]; then
         print_error "下载失败或文件为空"
         exit 1
     fi
 
+    # 验证是否是有效的可执行文件（ELF/Mach-O 检查）
+    local file_type=$(file "$temp_file" 2>/dev/null)
+    if ! echo "$file_type" | grep -qE "executable|ELF|Mach-O"; then
+        print_error "下载的文件不是有效的可执行文件"
+        print_error "文件类型: $file_type"
+        rm -f "$temp_file"
+        exit 1
+    fi
+
+    # 删除旧文件并移动新文件
+    rm -f "$geth_path"
+    mv "$temp_file" "$geth_path"
+    chmod +x "$geth_path"
+
+    # 如果 /usr/local/bin/geth 存在，也更新它
+    if [ -f "/usr/local/bin/geth" ]; then
+        print_info "检测到 /usr/local/bin/geth，正在更新..."
+        if [ -w "/usr/local/bin" ]; then
+            cp "$geth_path" /usr/local/bin/geth
+            print_success "已更新 /usr/local/bin/geth"
+        elif command -v sudo &> /dev/null; then
+            sudo cp "$geth_path" /usr/local/bin/geth
+            print_success "已更新 /usr/local/bin/geth"
+        else
+            print_warn "无法更新 /usr/local/bin/geth，请手动复制"
+        fi
+    fi
+
     # 显示版本
-    local version=$(./geth version 2>/dev/null | grep "Version:" | head -1 || echo "未知")
+    local version=$("$geth_path" version 2>/dev/null | grep "Version:" | head -1 || echo "未知")
     print_success "新客户端已下载: $version"
 }
 

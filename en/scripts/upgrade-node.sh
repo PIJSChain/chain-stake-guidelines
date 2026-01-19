@@ -169,33 +169,63 @@ download_client() {
 
     local geth_filename="geth-${PLATFORM}"
     local download_url="${GITHUB_RELEASE}/${geth_filename}"
+    local bin_dir="$INSTALL_DIR/bin"
+    local geth_path="$bin_dir/geth"
+    local temp_file="$bin_dir/geth.new"
 
     print_info "Downloading from: $download_url"
 
-    cd "$INSTALL_DIR/bin"
+    # Ensure directory exists
+    mkdir -p "$bin_dir"
 
-    # Remove old file
-    rm -f geth geth-*
+    # Download to temp file
+    rm -f "$temp_file"
 
     if command -v curl &> /dev/null; then
-        curl -L -o geth "$download_url" --progress-bar
+        curl -L -o "$temp_file" "$download_url" --progress-bar
     elif command -v wget &> /dev/null; then
-        wget -O geth "$download_url" --show-progress
+        wget -O "$temp_file" "$download_url" --show-progress
     else
         print_error "Neither curl nor wget found"
         exit 1
     fi
 
-    chmod +x geth
-
     # Verify download
-    if [ ! -f "geth" ] || [ ! -s "geth" ]; then
+    if [ ! -f "$temp_file" ] || [ ! -s "$temp_file" ]; then
         print_error "Download failed or file is empty"
         exit 1
     fi
 
+    # Verify it's a valid executable (ELF/Mach-O check)
+    local file_type=$(file "$temp_file" 2>/dev/null)
+    if ! echo "$file_type" | grep -qE "executable|ELF|Mach-O"; then
+        print_error "Downloaded file is not a valid executable"
+        print_error "File type: $file_type"
+        rm -f "$temp_file"
+        exit 1
+    fi
+
+    # Remove old file and move new file
+    rm -f "$geth_path"
+    mv "$temp_file" "$geth_path"
+    chmod +x "$geth_path"
+
+    # If /usr/local/bin/geth exists, update it too
+    if [ -f "/usr/local/bin/geth" ]; then
+        print_info "Detected /usr/local/bin/geth, updating..."
+        if [ -w "/usr/local/bin" ]; then
+            cp "$geth_path" /usr/local/bin/geth
+            print_success "Updated /usr/local/bin/geth"
+        elif command -v sudo &> /dev/null; then
+            sudo cp "$geth_path" /usr/local/bin/geth
+            print_success "Updated /usr/local/bin/geth"
+        else
+            print_warn "Cannot update /usr/local/bin/geth, please copy manually"
+        fi
+    fi
+
     # Show version
-    local version=$(./geth version 2>/dev/null | grep "Version:" | head -1 || echo "Unknown")
+    local version=$("$geth_path" version 2>/dev/null | grep "Version:" | head -1 || echo "Unknown")
     print_success "New client downloaded: $version"
 }
 
