@@ -52,8 +52,8 @@ chmod +x upgrade-node.sh
 #### Windows PowerShell
 
 ```powershell
-# Download upgrade script
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/PIJSChain/chain-stake-guidelines/main/en/scripts/upgrade-node.ps1" -OutFile "upgrade-node.ps1"
+# Download upgrade script (use WebClient to preserve encoding)
+(New-Object Net.WebClient).DownloadFile("https://raw.githubusercontent.com/PIJSChain/chain-stake-guidelines/main/en/scripts/upgrade-node.ps1", "$PWD\upgrade-node.ps1")
 
 # Allow script execution (if needed)
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
