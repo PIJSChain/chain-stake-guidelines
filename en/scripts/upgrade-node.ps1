@@ -1,4 +1,4 @@
-# ============================================================
+﻿# ============================================================
 # PIJS Consensus Node Upgrade Script (Windows PowerShell)
 # For hard fork upgrades - updates client and chain config only
 # Does NOT delete existing chain data
