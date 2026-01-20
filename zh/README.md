@@ -52,8 +52,8 @@ chmod +x upgrade-node.sh
 #### Windows PowerShell
 
 ```powershell
-# 下载升级脚本（使用 WebClient 保持正确编码）
-(New-Object Net.WebClient).DownloadFile("https://raw.githubusercontent.com/PIJSChain/chain-stake-guidelines/main/zh/scripts/upgrade-node.ps1", "$PWD\upgrade-node.ps1")
+# 下载升级脚本
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/PIJSChain/chain-stake-guidelines/main/zh/scripts/upgrade-node.ps1" -OutFile "upgrade-node.ps1"
 
 # 允许脚本执行（如需要）
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
