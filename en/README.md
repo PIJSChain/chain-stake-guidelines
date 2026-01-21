@@ -653,7 +653,7 @@ geth hybrid bls deposit `
 | Item | Testnet | Mainnet |
 |------|---------|---------|
 | Minimum Stake | 2,000 PIJS | TBD |
-| Maximum Stake | 100,000 PIJS | TBD |
+| Maximum Stake | 100,0000 PIJS | TBD |
 | Stake Period | 7 days | TBD |
 | Grace Period | 72 hours after maturity | TBD |
 | Auto-renewal | Auto-renews if not redeemed | TBD |
@@ -975,7 +975,7 @@ A node operator is a person who ensures the client software runs properly and ma
 
 | Network | Minimum Stake | Maximum Stake |
 |---------|---------------|---------------|
-| Testnet | 2,000 PIJS    | 100,000 PIJS  |
+| Testnet | 2,000 PIJS    | 100,0000 PIJS  |
 | Mainnet | TBD           | TBD           |
 
 Amounts exceeding the maximum stake do not participate in reward calculations.
