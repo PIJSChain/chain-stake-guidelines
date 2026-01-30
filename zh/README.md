@@ -20,9 +20,9 @@
 
 | 资源 | 下载地址 |
 |------|---------|
-| 节点程序 | https://github.com/PIJSChain/pijs/releases/tag/v1.25.6k |
-| 创世配置 | https://github.com/PIJSChain/pijs/releases/download/v1.25.6k/genesis.json |
-| 引导节点 | https://github.com/PIJSChain/pijs/releases/download/v1.25.6k/bootnodes.txt |
+| 节点程序 | https://github.com/PIJSChain/pijs/releases/tag/v1.25.7 |
+| 创世配置 | https://github.com/PIJSChain/pijs/releases/download/v1.25.7/genesis.json |
+| 引导节点 | https://github.com/PIJSChain/pijs/releases/download/v1.25.7/bootnodes.txt |
 
 ---
 
@@ -84,12 +84,12 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 3. **下载新客户端**
 
    从以下地址下载对应平台的版本：
-   <https://github.com/PIJSChain/pijs/releases/tag/v1.25.6k>
+   <https://github.com/PIJSChain/pijs/releases/tag/v1.25.7>
 
    ```bash
    # 以 Linux x86_64 为例
    cd ~/pijs-node/bin
-   curl -LO https://github.com/PIJSChain/pijs/releases/download/v1.25.6k/geth-linux-amd64
+   curl -LO https://github.com/PIJSChain/pijs/releases/download/v1.25.7/geth-linux-amd64
    mv geth-linux-amd64 geth
    chmod +x geth
    ```
@@ -98,7 +98,7 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 
    ```bash
    cd ~/pijs-node
-   curl -LO https://github.com/PIJSChain/pijs/releases/download/v1.25.6k/genesis.json
+   curl -LO https://github.com/PIJSChain/pijs/releases/download/v1.25.7/genesis.json
    ```
 
 5. **重新初始化链配置（用于硬分叉）**
@@ -212,15 +212,15 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 
 访问 GitHub Release 页面下载对应平台的压缩包：
 
-**下载地址**: <https://github.com/PIJSChain/pijs/releases/tag/v1.25.6k>
+**下载地址**: <https://github.com/PIJSChain/pijs/releases/tag/v1.25.7>
 
 | 平台 | 文件名 |
 | ---- | ------ |
-| Linux x86_64 | geth-v1.25.6k-linux-amd64.tar.gz |
-| Linux ARM64 | geth-v1.25.6k-linux-arm64.tar.gz |
-| macOS Intel | geth-v1.25.6k-darwin-amd64.tar.gz |
-| macOS Apple Silicon | geth-v1.25.6k-darwin-arm64.tar.gz |
-| Windows x86_64 | geth-v1.25.6k-windows-amd64.tar.gz |
+| Linux x86_64 | geth-v1.25.7-linux-amd64.tar.gz |
+| Linux ARM64 | geth-v1.25.7-linux-arm64.tar.gz |
+| macOS Intel | geth-v1.25.7-darwin-amd64.tar.gz |
+| macOS Apple Silicon | geth-v1.25.7-darwin-arm64.tar.gz |
+| Windows x86_64 | geth-v1.25.7-windows-amd64.tar.gz |
 
 > **重要**: 压缩包内包含 `geth` 和 `bootnode` 等二进制文件，都需要添加到系统 PATH 中
 
@@ -228,10 +228,10 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 
 ```bash
 # 下载
-wget https://github.com/PIJSChain/pijs/releases/download/v1.25.6k/geth-v1.25.6k-linux-amd64.tar.gz
+wget https://github.com/PIJSChain/pijs/releases/download/v1.25.7/geth-v1.25.7-linux-amd64.tar.gz
 
 # 解压
-tar -xzf geth-v1.25.6k-linux-amd64.tar.gz
+tar -xzf geth-v1.25.7-linux-amd64.tar.gz
 
 # 将 geth 和 bootnode 移动到系统路径
 sudo mv geth bootnode /usr/local/bin/
@@ -244,8 +244,8 @@ bootnode --help
 #### Linux (ARM64)
 
 ```bash
-wget https://github.com/PIJSChain/pijs/releases/download/v1.25.6k/geth-v1.25.6k-linux-arm64.tar.gz
-tar -xzf geth-v1.25.6k-linux-arm64.tar.gz
+wget https://github.com/PIJSChain/pijs/releases/download/v1.25.7/geth-v1.25.7-linux-arm64.tar.gz
+tar -xzf geth-v1.25.7-linux-arm64.tar.gz
 sudo mv geth bootnode /usr/local/bin/
 geth version
 ```
@@ -253,8 +253,8 @@ geth version
 #### macOS (Intel)
 
 ```bash
-curl -LO https://github.com/PIJSChain/pijs/releases/download/v1.25.6k/geth-v1.25.6k-darwin-amd64.tar.gz
-tar -xzf geth-v1.25.6k-darwin-amd64.tar.gz
+curl -LO https://github.com/PIJSChain/pijs/releases/download/v1.25.7/geth-v1.25.7-darwin-amd64.tar.gz
+tar -xzf geth-v1.25.7-darwin-amd64.tar.gz
 sudo mv geth bootnode /usr/local/bin/
 geth version
 ```
@@ -262,15 +262,15 @@ geth version
 #### macOS (Apple Silicon)
 
 ```bash
-curl -LO https://github.com/PIJSChain/pijs/releases/download/v1.25.6k/geth-v1.25.6k-darwin-arm64.tar.gz
-tar -xzf geth-v1.25.6k-darwin-arm64.tar.gz
+curl -LO https://github.com/PIJSChain/pijs/releases/download/v1.25.7/geth-v1.25.7-darwin-arm64.tar.gz
+tar -xzf geth-v1.25.7-darwin-arm64.tar.gz
 sudo mv geth bootnode /usr/local/bin/
 geth version
 ```
 
 #### Windows (x86_64)
 
-1. 下载 `geth-v1.25.6k-windows-amd64.tar.gz`
+1. 下载 `geth-v1.25.7-windows-amd64.tar.gz`
 2. 解压到目录，例如 `C:\pijs-node\bin\`
 3. 将该目录添加到系统 PATH 环境变量：
    - 右键「此电脑」→「属性」→「高级系统设置」→「环境变量」
@@ -288,10 +288,10 @@ bootnode --help
 
 ```bash
 # Linux/macOS
-curl -LO https://github.com/PIJSChain/pijs/releases/download/v1.25.6k/genesis.json
+curl -LO https://github.com/PIJSChain/pijs/releases/download/v1.25.7/genesis.json
 
 # Windows PowerShell
-Invoke-WebRequest -Uri "https://github.com/PIJSChain/pijs/releases/download/v1.25.6k/genesis.json" -OutFile "genesis.json"
+Invoke-WebRequest -Uri "https://github.com/PIJSChain/pijs/releases/download/v1.25.7/genesis.json" -OutFile "genesis.json"
 ```
 
 #### 1.3 获取引导节点地址
@@ -300,7 +300,7 @@ Invoke-WebRequest -Uri "https://github.com/PIJSChain/pijs/releases/download/v1.2
 
 ```bash
 # 下载引导节点列表
-curl -LO https://github.com/PIJSChain/pijs/releases/download/v1.25.6k/bootnodes.txt
+curl -LO https://github.com/PIJSChain/pijs/releases/download/v1.25.7/bootnodes.txt
 
 # 或直接使用以下地址：
 enode://6f05512feacca0b15cd94ed2165e8f96b16cf346cb16ba7810a37bea05851b3887ee8ef3ee790090cb3352f37a710bcd035d6b0bfd8961287751532c2b0717fb@54.169.152.20:30303

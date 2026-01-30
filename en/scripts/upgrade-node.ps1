@@ -7,9 +7,9 @@
 $ErrorActionPreference = "Stop"
 
 # ==================== Configuration ====================
-$GITHUB_RELEASE = "https://github.com/PIJSChain/pijs/releases/download/v1.25.6k"
-$GETH_VERSION = "v1.25.6k"
-$GENESIS_URL = "https://github.com/PIJSChain/pijs/releases/download/v1.25.6k/genesis.json"
+$GITHUB_RELEASE = "https://github.com/PIJSChain/pijs/releases/download/v1.25.7"
+$GETH_VERSION = "v1.25.7"
+$GENESIS_URL = "https://github.com/PIJSChain/pijs/releases/download/v1.25.7/genesis.json"
 
 # Default directory
 $DEFAULT_INSTALL_DIR = "$env:USERPROFILE\pijs-node"
