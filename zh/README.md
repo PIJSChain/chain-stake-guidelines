@@ -353,6 +353,24 @@ geth hybrid bls generate --save ./bls-keystore.json
 # Encrypted key saved to: ./bls-keystore.json
 ```
 
+如果您希望通过“引入（import）已有私钥”的方式生成 BLS 密钥文件（例如迁移已有节点或做自动化），可使用以下流程：
+
+```bash
+# 私钥格式要求：32 字节 hex（可带 0x 前缀）
+export BLS_PRIVKEY=0x<your_32_bytes_hex>
+
+# 导入私钥并生成加密 keystore 文件
+geth hybrid bls import \
+  --privkey "$BLS_PRIVKEY" \
+  --save ./bls-keystore.json
+
+# 验证导入后的 BLS 公钥
+geth hybrid bls show --keyfile ./bls-keystore.json
+```
+
+> `geth hybrid bls import` 会将 32 字节私钥转换为可直接用于节点启动的 `bls-keystore.json`。在 `go-ethereum-my` 中对应 `consensus/hybrid/bls.go` 的 `NewBLSKeyFromSecret` 和 `SaveEncryptedBLSKey` 实现。
+> 若您在代码中直接引入模块，也可以调用 `hybrid.NewBLSKey()` + `SaveEncryptedBLSKey(...)` 生成同格式密钥文件。
+
 > **重要提示**
 > - 密码用于加密 BLS 私钥，**务必妥善保管**
 > - 密钥文件 `bls-keystore.json` 必须**安全备份**
@@ -1159,4 +1177,3 @@ geth attach ./data/geth.ipc
 ## 获取帮助
 
 - 支持邮箱：[support@pijschain.com]
-

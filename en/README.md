@@ -353,6 +353,24 @@ geth hybrid bls generate --save ./bls-keystore.json
 # Encrypted key saved to: ./bls-keystore.json
 ```
 
+If you prefer generating the BLS keystore by importing an existing private key (for migration or automation), use:
+
+```bash
+# Private key format: 32-byte hex (with or without 0x prefix)
+export BLS_PRIVKEY=0x<your_32_bytes_hex>
+
+# Import private key and generate encrypted keystore
+geth hybrid bls import \
+  --privkey "$BLS_PRIVKEY" \
+  --save ./bls-keystore.json
+
+# Verify imported public key
+geth hybrid bls show --keyfile ./bls-keystore.json
+```
+
+> `geth hybrid bls import` converts a 32-byte private key into a startup-ready `bls-keystore.json`. In `go-ethereum-my`, this maps to `NewBLSKeyFromSecret` and `SaveEncryptedBLSKey` in `consensus/hybrid/bls.go`.
+> If you generate keys in code, you can also import `hybrid` and call `hybrid.NewBLSKey()` + `SaveEncryptedBLSKey(...)` to produce the same keystore format.
+
 > **Important Notes**
 > - Password encrypts BLS private key, **keep it safe**
 > - Key file `bls-keystore.json` must be **securely backed up**
