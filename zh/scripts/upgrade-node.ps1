@@ -7,9 +7,9 @@
 $ErrorActionPreference = "Stop"
 
 # ==================== 配置区域 ====================
-$GITHUB_RELEASE = "https://github.com/PIJSChain/pijs/releases/download/v1.25.7"
-$GETH_VERSION = "v1.25.7"
-$GENESIS_URL = "https://github.com/PIJSChain/pijs/releases/download/v1.25.7/genesis.json"
+$GITHUB_RELEASE = "https://github.com/PIJSChain/pijs/releases/download/v1.25.8"
+$GETH_VERSION = "v1.25.8"
+$GENESIS_URL = "https://github.com/PIJSChain/pijs/releases/download/v1.25.8/genesis.json"
 
 # 默认目录
 $DEFAULT_INSTALL_DIR = "$env:USERPROFILE\pijs-node"
