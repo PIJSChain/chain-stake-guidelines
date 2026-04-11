@@ -62,6 +62,49 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 .\upgrade-node.ps1
 ```
 
+### Update Binaries Only (Without Updating Chain Config)
+
+Use this when:
+
+- You only want to refresh executables such as `geth` and `bootnode`
+- The current release **does not include a hard fork**, so `geth init` is not required
+- You want the latest binary directory to be added to `PATH` automatically
+
+> **Note**: If the release requires a new `genesis.json` or a fresh `init`, use the full upgrade script above instead of a binary-only update.
+
+#### Linux / macOS
+
+```bash
+# Download script
+curl -LO https://raw.githubusercontent.com/PIJSChain/chain-stake-guidelines/main/en/scripts/update-node-binaries.sh
+
+# Add execute permission
+chmod +x update-node-binaries.sh
+
+# Run script (auto-detects the latest release and updates PATH)
+./update-node-binaries.sh
+```
+
+#### Windows PowerShell
+
+```powershell
+# Download script
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/PIJSChain/chain-stake-guidelines/main/en/scripts/update-node-binaries.ps1" -OutFile "update-node-binaries.ps1"
+
+# Allow script execution (if needed)
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+# Run script (auto-detects the latest release and updates user PATH)
+.\update-node-binaries.ps1
+```
+
+The script automatically:
+
+1. Checks the latest version on GitHub
+2. Backs up existing binaries under the `bin` directory
+3. Downloads and replaces the latest `geth` / `bootnode` tools
+4. Adds `install-directory/bin` to the current session and persistent `PATH`
+
 ### Manual Upgrade Steps
 
 If you prefer manual upgrade:

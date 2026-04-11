@@ -62,6 +62,49 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 .\upgrade-node.ps1
 ```
 
+### 只更新二进制文件（不更新链配置）
+
+适用场景：
+
+- 只想更新 `geth`、`bootnode` 等可执行文件
+- 本次发布**不涉及硬分叉**，无需重新执行 `geth init`
+- 需要把最新二进制目录自动加入环境变量 `PATH`
+
+> **注意**：如果本次发布要求更新 `genesis.json` 或重新执行 `init`，请使用上面的完整升级脚本，不要只更新二进制文件。
+
+#### Linux / macOS
+
+```bash
+# 下载脚本
+curl -LO https://raw.githubusercontent.com/PIJSChain/chain-stake-guidelines/main/zh/scripts/update-node-binaries.sh
+
+# 添加执行权限
+chmod +x update-node-binaries.sh
+
+# 运行脚本（自动获取最新 release，并写入 PATH）
+./update-node-binaries.sh
+```
+
+#### Windows PowerShell
+
+```powershell
+# 下载脚本
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/PIJSChain/chain-stake-guidelines/main/zh/scripts/update-node-binaries.ps1" -OutFile "update-node-binaries.ps1"
+
+# 允许脚本执行（如需要）
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+# 运行脚本（自动获取最新 release，并写入用户 PATH）
+.\update-node-binaries.ps1
+```
+
+脚本会自动完成以下操作：
+
+1. 查询 GitHub 上最新版本
+2. 备份当前 `bin` 目录中的已有二进制文件
+3. 下载并覆盖最新 `geth` / `bootnode` 等工具
+4. 将 `安装目录/bin` 添加到当前会话与持久化 `PATH`
+
 ### 手动升级步骤
 
 如果您希望手动升级：
