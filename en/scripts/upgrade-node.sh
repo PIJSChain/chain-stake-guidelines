@@ -8,9 +8,9 @@
 set -e
 
 # ==================== Configuration ====================
-GITHUB_RELEASE="https://github.com/PIJSChain/pijs/releases/download/v1.25.8"
-GETH_VERSION="v1.25.8"
-GENESIS_URL="https://github.com/PIJSChain/pijs/releases/download/v1.25.8/genesis.json"
+GITHUB_RELEASE="https://github.com/PIJSChain/pijs/releases/download/v1.25.9"
+GETH_VERSION="v1.25.9"
+GENESIS_URL="https://github.com/PIJSChain/pijs/releases/download/v1.25.9/genesis.json"
 
 # Default directory
 DEFAULT_INSTALL_DIR="$HOME/pijs-node"

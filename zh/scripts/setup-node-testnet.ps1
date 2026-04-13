@@ -5,10 +5,10 @@
 #Requires -Version 5.1
 
 # ==================== 配置区域 ====================
-$GITHUB_RELEASE = "https://github.com/PIJSChain/pijs/releases/download/v1.25.8"
-$GETH_VERSION = "v1.25.8"
-$GENESIS_URL = "https://github.com/PIJSChain/pijs/releases/download/v1.25.8/genesis.json"
-$BOOTNODE_URL = "https://github.com/PIJSChain/pijs/releases/download/v1.25.8/bootnodes.txt"
+$GITHUB_RELEASE = "https://github.com/PIJSChain/pijs/releases/download/v1.25.9"
+$GETH_VERSION = "v1.25.9"
+$GENESIS_URL = "https://github.com/PIJSChain/pijs/releases/download/v1.25.9/genesis.json"
+$BOOTNODE_URL = "https://github.com/PIJSChain/pijs/releases/download/v1.25.9/bootnodes.txt"
 
 $CHAIN_ID = "20250521"
 $NETWORK_NAME = "PIJS Testnet"
