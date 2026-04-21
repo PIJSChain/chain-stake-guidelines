@@ -8,10 +8,10 @@ set -e
 
 # ==================== 配置区域 ====================
 # 下载地址
-GITHUB_RELEASE="https://github.com/PIJSChain/pijs/releases/download/v1.25.9"
-GETH_VERSION="v1.25.9"
-GENESIS_URL="https://github.com/PIJSChain/pijs/releases/download/v1.25.9/genesis.json"
-BOOTNODE_URL="https://github.com/PIJSChain/pijs/releases/download/v1.25.9/bootnodes.txt"
+GITHUB_RELEASE="https://github.com/PIJSChain/pijs/releases/download/v1.26.0"
+GETH_VERSION="v1.26.0"
+GENESIS_URL="https://github.com/PIJSChain/pijs/releases/download/v1.26.0/genesis.json"
+BOOTNODE_URL="https://github.com/PIJSChain/pijs/releases/download/v1.26.0/bootnodes.txt"
 
 # 链配置
 CHAIN_ID="20250521"

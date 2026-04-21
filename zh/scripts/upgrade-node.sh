@@ -8,9 +8,9 @@
 set -e
 
 # ==================== 配置区域 ====================
-GITHUB_RELEASE="https://github.com/PIJSChain/pijs/releases/download/v1.25.9"
-GETH_VERSION="v1.25.9"
-GENESIS_URL="https://github.com/PIJSChain/pijs/releases/download/v1.25.9/genesis.json"
+GITHUB_RELEASE="https://github.com/PIJSChain/pijs/releases/download/v1.26.0"
+GETH_VERSION="v1.26.0"
+GENESIS_URL="https://github.com/PIJSChain/pijs/releases/download/v1.26.0/genesis.json"
 
 # 默认目录
 DEFAULT_INSTALL_DIR="$HOME/pijs-node"
