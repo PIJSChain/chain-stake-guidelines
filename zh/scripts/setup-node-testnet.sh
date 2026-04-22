@@ -246,7 +246,7 @@ download_geth() {
     fi
 
     # 复制到系统路径
-    echo -e "是否将 geth 和 bootnode 复制到 /usr/local/bin? (y/n) [默认: y]: \c"
+    echo -e "是否将 geth、bootnode、devp2p 复制到 /usr/local/bin? (y/n) [默认: y]: \c"
     read -r copy_to_system
     if [[ ! "$copy_to_system" =~ ^[Nn]$ ]]; then
         if [ -w "/usr/local/bin" ] || command -v sudo &> /dev/null; then
@@ -254,9 +254,11 @@ download_geth() {
             if [ -w "/usr/local/bin" ]; then
                 cp "$INSTALL_DIR/bin/geth" /usr/local/bin/
                 cp "$INSTALL_DIR/bin/bootnode" /usr/local/bin/
+                [ -f "$INSTALL_DIR/bin/devp2p" ] && cp "$INSTALL_DIR/bin/devp2p" /usr/local/bin/
             else
                 sudo cp "$INSTALL_DIR/bin/geth" /usr/local/bin/
                 sudo cp "$INSTALL_DIR/bin/bootnode" /usr/local/bin/
+                [ -f "$INSTALL_DIR/bin/devp2p" ] && sudo cp "$INSTALL_DIR/bin/devp2p" /usr/local/bin/
             fi
             print_success "已复制到 /usr/local/bin/"
         else

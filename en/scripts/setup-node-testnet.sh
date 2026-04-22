@@ -246,7 +246,7 @@ download_geth() {
     fi
 
     # Copy to system path
-    echo -e "Copy geth and bootnode to /usr/local/bin? (y/n) [default: y]: \c"
+    echo -e "Copy geth, bootnode, devp2p to /usr/local/bin? (y/n) [default: y]: \c"
     read -r copy_to_system
     if [[ ! "$copy_to_system" =~ ^[Nn]$ ]]; then
         if [ -w "/usr/local/bin" ] || command -v sudo &> /dev/null; then
@@ -254,9 +254,11 @@ download_geth() {
             if [ -w "/usr/local/bin" ]; then
                 cp "$INSTALL_DIR/bin/geth" /usr/local/bin/
                 cp "$INSTALL_DIR/bin/bootnode" /usr/local/bin/
+                [ -f "$INSTALL_DIR/bin/devp2p" ] && cp "$INSTALL_DIR/bin/devp2p" /usr/local/bin/
             else
                 sudo cp "$INSTALL_DIR/bin/geth" /usr/local/bin/
                 sudo cp "$INSTALL_DIR/bin/bootnode" /usr/local/bin/
+                [ -f "$INSTALL_DIR/bin/devp2p" ] && sudo cp "$INSTALL_DIR/bin/devp2p" /usr/local/bin/
             fi
             print_success "Copied to /usr/local/bin/"
         else

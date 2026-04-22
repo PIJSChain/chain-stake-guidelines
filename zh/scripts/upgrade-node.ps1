@@ -169,7 +169,7 @@ function Download-Client {
     }
 
     # 移动所有二进制文件到 bin 目录
-    $binaries = @("geth.exe", "bootnode.exe", "abigen.exe", "clef.exe", "evm.exe", "rlpdump.exe")
+    $binaries = @("geth.exe", "bootnode.exe", "abigen.exe", "clef.exe", "evm.exe", "rlpdump.exe", "devp2p.exe", "ethkey.exe", "p2psim.exe")
     foreach ($binary in $binaries) {
         $srcPath = Join-Path $InstallDir $binary
         if (Test-Path $srcPath) {
@@ -271,6 +271,11 @@ function Show-Completion {
     Write-Host "重要提示:" -ForegroundColor Yellow
     Write-Host "  - 如升级失败，可从 $InstallDir\backup\ 恢复备份"
     Write-Host "  - 重启后请监控日志，确保节点正常同步"
+    Write-Host ""
+    Write-Host "网络连接诊断:" -ForegroundColor Blue
+    Write-Host "  如果启动后 peerCount 为 0，可使用 devp2p 工具检测引导节点连通性:"
+    Write-Host "  devp2p discv4 ping <enode-url>" -ForegroundColor Cyan
+    Write-Host "  示例: devp2p discv4 ping enode://6f05...fb@54.169.152.20:30303"
     Write-Host ""
 }
 

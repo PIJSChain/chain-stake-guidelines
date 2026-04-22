@@ -169,7 +169,7 @@ function Download-Client {
     }
 
     # Move all binaries to bin directory
-    $binaries = @("geth.exe", "bootnode.exe", "abigen.exe", "clef.exe", "evm.exe", "rlpdump.exe")
+    $binaries = @("geth.exe", "bootnode.exe", "abigen.exe", "clef.exe", "evm.exe", "rlpdump.exe", "devp2p.exe", "ethkey.exe", "p2psim.exe")
     foreach ($binary in $binaries) {
         $srcPath = Join-Path $InstallDir $binary
         if (Test-Path $srcPath) {
@@ -271,6 +271,11 @@ function Show-Completion {
     Write-Host "Important:" -ForegroundColor Yellow
     Write-Host "  - If upgrade fails, restore backup from: $InstallDir\backup\"
     Write-Host "  - Monitor logs after restart to ensure node syncs correctly"
+    Write-Host ""
+    Write-Host "Network Diagnostics:" -ForegroundColor Blue
+    Write-Host "  If peerCount stays at 0 after startup, use devp2p to test bootnode connectivity:"
+    Write-Host "  devp2p discv4 ping <enode-url>" -ForegroundColor Cyan
+    Write-Host "  Example: devp2p discv4 ping enode://6f05...fb@54.169.152.20:30303"
     Write-Host ""
 }
 

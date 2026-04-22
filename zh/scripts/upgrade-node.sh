@@ -20,6 +20,7 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # ==================== 工具函数 ====================
@@ -227,10 +228,12 @@ download_client() {
         if [ -w "/usr/local/bin" ]; then
             cp "$bin_dir/geth" /usr/local/bin/geth
             [ -f "$bin_dir/bootnode" ] && cp "$bin_dir/bootnode" /usr/local/bin/bootnode
+            [ -f "$bin_dir/devp2p" ] && cp "$bin_dir/devp2p" /usr/local/bin/devp2p
             print_success "已更新 /usr/local/bin 中的二进制文件"
         elif command -v sudo &> /dev/null; then
             sudo cp "$bin_dir/geth" /usr/local/bin/geth
             [ -f "$bin_dir/bootnode" ] && sudo cp "$bin_dir/bootnode" /usr/local/bin/bootnode
+            [ -f "$bin_dir/devp2p" ] && sudo cp "$bin_dir/devp2p" /usr/local/bin/devp2p
             print_success "已更新 /usr/local/bin 中的二进制文件"
         else
             print_warn "无法更新 /usr/local/bin，请手动复制"
@@ -309,6 +312,11 @@ show_completion() {
     echo -e "${YELLOW}重要提示:${NC}"
     echo "  - 如升级失败，可从 $INSTALL_DIR/backup/ 恢复备份"
     echo "  - 重启后请监控日志，确保节点正常同步"
+    echo ""
+    echo -e "${BLUE}网络连接诊断:${NC}"
+    echo "  如果启动后 peerCount 为 0，可使用 devp2p 工具检测引导节点连通性:"
+    echo -e "  ${CYAN}devp2p discv4 ping <enode-url>${NC}"
+    echo "  示例: devp2p discv4 ping enode://6f05...fb@54.169.152.20:30303"
     echo ""
 }
 

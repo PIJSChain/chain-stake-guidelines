@@ -20,6 +20,7 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # ==================== Utility Functions ====================
@@ -227,10 +228,12 @@ download_client() {
         if [ -w "/usr/local/bin" ]; then
             cp "$bin_dir/geth" /usr/local/bin/geth
             [ -f "$bin_dir/bootnode" ] && cp "$bin_dir/bootnode" /usr/local/bin/bootnode
+            [ -f "$bin_dir/devp2p" ] && cp "$bin_dir/devp2p" /usr/local/bin/devp2p
             print_success "Updated binaries in /usr/local/bin"
         elif command -v sudo &> /dev/null; then
             sudo cp "$bin_dir/geth" /usr/local/bin/geth
             [ -f "$bin_dir/bootnode" ] && sudo cp "$bin_dir/bootnode" /usr/local/bin/bootnode
+            [ -f "$bin_dir/devp2p" ] && sudo cp "$bin_dir/devp2p" /usr/local/bin/devp2p
             print_success "Updated binaries in /usr/local/bin"
         else
             print_warn "Cannot update /usr/local/bin, please copy manually"
@@ -309,6 +312,11 @@ show_completion() {
     echo -e "${YELLOW}Important:${NC}"
     echo "  - If upgrade fails, restore backup from: $INSTALL_DIR/backup/"
     echo "  - Monitor logs after restart to ensure node syncs correctly"
+    echo ""
+    echo -e "${BLUE}Network Diagnostics:${NC}"
+    echo "  If peerCount stays at 0 after startup, use devp2p to test bootnode connectivity:"
+    echo -e "  ${CYAN}devp2p discv4 ping <enode-url>${NC}"
+    echo "  Example: devp2p discv4 ping enode://6f05...fb@54.169.152.20:30303"
     echo ""
 }
 
