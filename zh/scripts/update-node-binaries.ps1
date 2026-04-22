@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 
 # ============================================================
 # PIJS 二进制更新脚本 (Windows PowerShell)

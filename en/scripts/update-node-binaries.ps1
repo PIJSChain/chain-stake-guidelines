@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 
 # ============================================================
 # PIJS Binary Update Script (Windows PowerShell)
