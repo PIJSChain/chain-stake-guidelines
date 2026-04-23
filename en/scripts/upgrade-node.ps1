@@ -249,6 +249,200 @@ function Initialize-Chain {
     }
 }
 
+# Interactive NAT mode selection (consistent with setup)
+function Choose-NatMode {
+    Write-Host ""
+    Write-Host "Please select your network environment:"
+    Write-Host ""
+    Write-Host "  1) Static public IP - Server has a static public IP address"
+    Write-Host "  2) NAT environment  - Behind a router/NAT gateway (home networks, some cloud VMs)"
+    Write-Host "  3) Auto-detect      - Detect public IP on every startup (recommended)"
+    Write-Host ""
+
+    $done = $false
+    while (-not $done) {
+        $choice = Read-Host "Please choose [1-3] (default: 3)"
+        if ([string]::IsNullOrWhiteSpace($choice)) { $choice = "3" }
+
+        switch ($choice) {
+            "1" {
+                Write-Host ""
+                Write-Info "Detecting your public IP..."
+                $detectedIp = $null
+                foreach ($svc in @("https://ip.sb", "https://api.ipify.org", "https://ifconfig.me/ip", "https://icanhazip.com", "https://ipinfo.io/ip")) {
+                    try {
+                        $result = (Invoke-WebRequest -Uri $svc -UseBasicParsing -TimeoutSec 5 -UserAgent "curl").Content.Trim()
+                        if ($result -match "^\d+\.\d+\.\d+\.\d+$") {
+                            $detectedIp = $result
+                            break
+                        }
+                    } catch {
+                        continue
+                    }
+                }
+
+                if ($detectedIp) {
+                    Write-Host "Detected IP: $detectedIp"
+                    $confirm = Read-Host "Use this IP? (y/n, or enter a different IP)"
+                    if ([string]::IsNullOrWhiteSpace($confirm) -or $confirm -match "^[Yy]$") {
+                        $script:NAT_MODE = "extip"
+                        $script:PUBLIC_IP = $detectedIp
+                        $done = $true
+                    } elseif ($confirm -match "^\d+\.\d+\.\d+\.\d+$") {
+                        $script:NAT_MODE = "extip"
+                        $script:PUBLIC_IP = $confirm
+                        $done = $true
+                    } else {
+                        Write-Host "Invalid input, please try again"
+                    }
+                } else {
+                    $manualIp = Read-Host "Failed to detect public IP, please enter your public IP manually"
+                    if ($manualIp -match "^\d+\.\d+\.\d+\.\d+$") {
+                        $script:NAT_MODE = "extip"
+                        $script:PUBLIC_IP = $manualIp
+                        $done = $true
+                    } else {
+                        Write-Error "Invalid IP address format"
+                    }
+                }
+            }
+            "2" {
+                $script:NAT_MODE = "any"
+                $script:PUBLIC_IP = ""
+                Write-Info "NAT mode selected, will use UPnP/NAT-PMP for automatic port mapping"
+                $done = $true
+            }
+            "3" {
+                $script:NAT_MODE = "auto"
+                $script:PUBLIC_IP = ""
+                Write-Info "Auto-detect mode, will detect public IP on every startup"
+                $done = $true
+            }
+            default {
+                Write-Host "Invalid choice, please enter 1, 2 or 3"
+            }
+        }
+    }
+}
+
+# Return NAT configuration block based on NAT_MODE, for embedding into start-node.ps1
+function Get-NatSection {
+    switch ($script:NAT_MODE) {
+        "extip" {
+            return @"
+# Static public IP mode
+`$NAT_CONFIG = "extip:$($script:PUBLIC_IP)"
+Write-Host "NAT config: `$NAT_CONFIG (static public IP)"
+"@
+        }
+        "any" {
+            return @"
+# NAT environment mode (UPnP/NAT-PMP)
+`$NAT_CONFIG = "any"
+Write-Host "NAT config: `$NAT_CONFIG (automatic port mapping)"
+"@
+        }
+        default {
+            return @'
+# Auto-detect public IP
+function Get-PublicIp {
+    foreach ($svc in @("https://ip.sb", "https://api.ipify.org", "https://ifconfig.me/ip", "https://icanhazip.com", "https://ipecho.net/plain", "https://ipinfo.io/ip")) {
+        try {
+            $ip = (Invoke-WebRequest -Uri $svc -UseBasicParsing -TimeoutSec 5 -UserAgent "curl").Content.Trim()
+            if ($ip -match "^\d+\.\d+\.\d+\.\d+$") {
+                return $ip
+            }
+        } catch {
+            continue
+        }
+    }
+    return $null
+}
+
+Write-Host "Detecting public IP..."
+$DETECTED_IP = Get-PublicIp
+if ($DETECTED_IP) {
+    $NAT_CONFIG = "extip:$DETECTED_IP"
+    Write-Host "  Detected public IP: $DETECTED_IP"
+    Write-Host "  NAT config: $NAT_CONFIG"
+} else {
+    $NAT_CONFIG = "any"
+    Write-Host "  Failed to detect public IP, falling back to NAT: any"
+}
+'@
+        }
+    }
+}
+
+# Optional: reconfigure network
+function Reconfigure-Network {
+    param([string]$InstallDir)
+
+    Write-Step "6" "Network configuration (optional)"
+
+    Write-Host ""
+    Write-Host "This step reconfigures the node's NAT network mode"
+    Write-Host "Only needed in the following cases:"
+    Write-Host "  - Server IP changed"
+    Write-Host "  - Migrated from home network to cloud (or vice versa)"
+    Write-Host "  - NAT was misconfigured (e.g. peerCount stays at 0)"
+    Write-Host ""
+
+    $reset = Read-Host "Reconfigure network? (y/N)"
+    if ($reset -notmatch "^[Yy]$") {
+        Write-Info "Skipping network configuration (keeping current settings)"
+        return
+    }
+
+    $startScript = Join-Path $InstallDir "start-node.ps1"
+    if (-not (Test-Path $startScript)) {
+        Write-Error "Not found: $startScript"
+        Write-Error "Please re-run setup-node-testnet.ps1 to redeploy"
+        return
+    }
+
+    # Locate start/end indices of the NAT Configuration block
+    $content = Get-Content $startScript
+    $startIdx = -1
+    $endIdx = -1
+    for ($i = 0; $i -lt $content.Count; $i++) {
+        if ($content[$i] -match "^# ==================== NAT Configuration ====================$") { $startIdx = $i }
+        if ($content[$i] -match "^# ==================== Start Node ====================$") { $endIdx = $i; break }
+    }
+
+    if ($startIdx -lt 0 -or $endIdx -lt 0 -or $endIdx -le $startIdx) {
+        Write-Error "start-node.ps1 format incompatible (may be generated by an older setup script)"
+        Write-Error "Please re-run setup-node-testnet.ps1 to redeploy"
+        return
+    }
+
+    # Ask for NAT mode
+    Choose-NatMode
+
+    # Back up current start-node.ps1
+    $backupDir = Join-Path $InstallDir "backup"
+    if (-not (Test-Path $backupDir)) {
+        New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
+    }
+    $timestamp = Get-Date -Format "yyyyMMddHHmmss"
+    $backupFile = Join-Path $backupDir "start-node.ps1.$timestamp"
+    Copy-Item $startScript $backupFile
+    Write-Info "Backed up original start-node.ps1 to: $backupFile"
+
+    # Generate the new NAT section and split into lines
+    $natSection = Get-NatSection
+    $natLines = $natSection -split "`r?`n"
+
+    # Rebuild: [0..startIdx] + new NAT block + [endIdx..end]
+    $newContent = @()
+    $newContent += $content[0..$startIdx]
+    $newContent += $natLines
+    $newContent += $content[$endIdx..($content.Count - 1)]
+    Set-Content -Path $startScript -Value $newContent
+
+    Write-Success "Network configuration updated to: $($script:NAT_MODE)"
+}
+
 # Show completion info
 function Show-Completion {
     param([string]$InstallDir)
@@ -320,6 +514,7 @@ function Main {
     Download-Client -InstallDir $installDir
     Download-Genesis -InstallDir $installDir
     Initialize-Chain -InstallDir $installDir
+    Reconfigure-Network -InstallDir $installDir
 
     Show-Completion -InstallDir $installDir
 }

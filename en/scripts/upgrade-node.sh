@@ -292,6 +292,190 @@ reinit_chain() {
     fi
 }
 
+# Interactive NAT mode selection (consistent with setup)
+choose_nat_mode() {
+    echo ""
+    echo "Please select your network environment:"
+    echo ""
+    echo "  1) Static public IP - Server has a static public IP address"
+    echo "  2) NAT environment  - Behind a router/NAT gateway (home networks, some cloud VMs)"
+    echo "  3) Auto-detect      - Detect public IP on every startup (recommended)"
+    echo ""
+
+    while true; do
+        read -p "Please choose [1-3] (default: 3): " network_choice
+        network_choice=${network_choice:-3}
+
+        case $network_choice in
+            1)
+                echo ""
+                echo "Detecting your public IP..."
+                local detected_ip=""
+                for service in "https://ip.sb" "https://api.ipify.org" "https://ifconfig.me" "https://icanhazip.com" "https://ipinfo.io/ip"; do
+                    detected_ip=$(curl -sA "curl/7" --connect-timeout 3 --max-time 5 "$service" 2>/dev/null | tr -d '[:space:]')
+                    if [[ "$detected_ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                        break
+                    fi
+                done
+
+                if [ -n "$detected_ip" ]; then
+                    echo "Detected IP: $detected_ip"
+                    read -p "Use this IP? (y/n, or enter a different IP): " ip_confirm
+                    if [ "$ip_confirm" = "y" ] || [ "$ip_confirm" = "Y" ] || [ -z "$ip_confirm" ]; then
+                        NAT_MODE="extip"
+                        PUBLIC_IP="$detected_ip"
+                    elif [[ "$ip_confirm" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                        NAT_MODE="extip"
+                        PUBLIC_IP="$ip_confirm"
+                    else
+                        echo "Invalid input, please try again"
+                        continue
+                    fi
+                else
+                    read -p "Failed to detect public IP, please enter your public IP manually: " PUBLIC_IP
+                    if [[ "$PUBLIC_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                        NAT_MODE="extip"
+                    else
+                        print_error "Invalid IP address format"
+                        continue
+                    fi
+                fi
+                break
+                ;;
+            2)
+                NAT_MODE="any"
+                PUBLIC_IP=""
+                print_info "NAT mode selected, will use UPnP/NAT-PMP for automatic port mapping"
+                break
+                ;;
+            3)
+                NAT_MODE="auto"
+                PUBLIC_IP=""
+                print_info "Auto-detect mode, will detect public IP on every startup"
+                break
+                ;;
+            *)
+                echo "Invalid choice, please enter 1, 2 or 3"
+                ;;
+        esac
+    done
+}
+
+# Emit NAT configuration block based on NAT_MODE, for embedding into start-node.sh
+emit_nat_section() {
+    if [ "$NAT_MODE" = "extip" ]; then
+        cat << EOF
+# Static public IP mode
+NAT_CONFIG="extip:$PUBLIC_IP"
+echo "NAT config: \$NAT_CONFIG (static public IP)"
+EOF
+    elif [ "$NAT_MODE" = "any" ]; then
+        cat << EOF
+# NAT environment mode (UPnP/NAT-PMP)
+NAT_CONFIG="any"
+echo "NAT config: \$NAT_CONFIG (automatic port mapping)"
+EOF
+    else
+        cat << 'AUTODETECT'
+# Auto-detect public IP
+detect_public_ip() {
+    local ip=""
+    for service in "https://ip.sb" "https://api.ipify.org" "https://ifconfig.me" "https://icanhazip.com" "https://ipecho.net/plain" "https://ipinfo.io/ip"; do
+        ip=$(curl -sA "curl/7" --connect-timeout 3 --max-time 5 "$service" 2>/dev/null | tr -d '[:space:]')
+        if [[ "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "$ip"
+            return 0
+        fi
+    done
+    return 1
+}
+
+echo "Detecting public IP..."
+DETECTED_IP=$(detect_public_ip)
+if [ -n "$DETECTED_IP" ]; then
+    NAT_CONFIG="extip:$DETECTED_IP"
+    echo "  Detected public IP: $DETECTED_IP"
+    echo "  NAT config: $NAT_CONFIG"
+else
+    NAT_CONFIG="any"
+    echo "  Failed to detect public IP, using NAT: any"
+fi
+AUTODETECT
+    fi
+}
+
+# Optional: reconfigure network
+reconfigure_network() {
+    print_step "6" "Network configuration (optional)"
+
+    echo ""
+    echo "This step reconfigures the node's NAT network mode"
+    echo "Only needed in the following cases:"
+    echo "  - Server IP changed"
+    echo "  - Migrated from home network to cloud (or vice versa)"
+    echo "  - NAT was misconfigured (e.g. peerCount stays at 0)"
+    echo ""
+
+    read -p "Reconfigure network? (y/N): " reset_network
+    if [ "$reset_network" != "y" ] && [ "$reset_network" != "Y" ]; then
+        print_info "Skipping network configuration (keeping current settings)"
+        return
+    fi
+
+    local start_script="$INSTALL_DIR/start-node.sh"
+    if [ ! -f "$start_script" ]; then
+        print_error "Not found: $start_script"
+        print_error "Please re-run setup-node-testnet.sh to redeploy"
+        return
+    fi
+
+    # Require new-format start-node.sh with explicit NAT markers
+    if ! grep -q "^# ==================== NAT Configuration ====================$" "$start_script" || \
+       ! grep -q "^# ==================== Start Node ====================$" "$start_script"; then
+        print_error "start-node.sh format incompatible (may be generated by an older setup script)"
+        print_error "Please re-run setup-node-testnet.sh to redeploy"
+        return
+    fi
+
+    # Ask for NAT mode
+    choose_nat_mode
+
+    # Emit new NAT block to a temp file
+    local nat_block_file
+    nat_block_file=$(mktemp)
+    emit_nat_section > "$nat_block_file"
+
+    # Back up current start-node.sh
+    local backup_dir="$INSTALL_DIR/backup"
+    mkdir -p "$backup_dir"
+    local backup_file="$backup_dir/start-node.sh.$(date +%Y%m%d%H%M%S)"
+    cp "$start_script" "$backup_file"
+    print_info "Backed up original start-node.sh to: $backup_file"
+
+    # Replace content between the two marker lines using awk
+    local temp_script
+    temp_script=$(mktemp)
+    awk -v nat_file="$nat_block_file" '
+        /^# ==================== NAT Configuration ====================$/ {
+            in_nat = 1
+            print
+            while ((getline line < nat_file) > 0) print line
+            close(nat_file)
+            next
+        }
+        /^# ==================== Start Node ====================$/ {
+            in_nat = 0
+        }
+        !in_nat { print }
+    ' "$start_script" > "$temp_script"
+
+    mv "$temp_script" "$start_script"
+    rm -f "$nat_block_file"
+    chmod +x "$start_script"
+
+    print_success "Network configuration updated to: $NAT_MODE"
+}
+
 # Show completion info
 show_completion() {
     echo ""
@@ -359,6 +543,7 @@ main() {
     download_client
     download_genesis
     reinit_chain
+    reconfigure_network
 
     show_completion
 }

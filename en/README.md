@@ -36,6 +36,32 @@ When a new version is released (especially for hard fork upgrades), existing nod
 
 We provide an automated upgrade script that handles client download, backup, and chain config update.
 
+The upgrade script runs the following steps in order:
+
+| # | Step | Description |
+|---|------|-------------|
+| 1 | Stop node | Auto-detect and stop the running node process |
+| 2 | Back up client | Copy the old `geth` binary into `backup/` |
+| 3 | Download new client | Pull the new binary from the GitHub release |
+| 4 | Download genesis | Fetch the updated `genesis.json` (hard-fork releases) |
+| 5 | Re-initialize chain | Run `geth init` to apply the new chain config, **keeping chain data** |
+| **6** | **Network configuration (optional)** | **Optionally reconfigure the NAT mode** |
+
+**Step 6 (Network configuration)** is optional and skipped by default. Answer `y` to the prompt "Reconfigure network? (y/N)" in any of these cases:
+
+- The server moved or its public IP changed
+- You migrated from a home network to a cloud host (or vice versa)
+- `net.peerCount` stays at 0 or is much lower than expected
+- The node was deployed with an older setup script that didn't offer a NAT mode choice
+
+When you opt in, three modes are offered:
+
+1. **Static public IP** — dedicated public IP (recommended for cloud hosts)
+2. **NAT environment** — behind a home router / NAT, uses UPnP / NAT-PMP
+3. **Auto-detect (recommended)** — queries the public IP on every startup, best for cloud hosts with dynamic IPs
+
+> **Note**: Step 6 only rewrites the NAT section inside `start-node.sh` / `start-node.ps1`. It **does not touch other launch parameters** (withdrawal address, bootnodes, RPC endpoints, etc.), and it makes a timestamped backup under `backup/` before writing.
+
 #### Linux / macOS
 
 ```bash
@@ -153,7 +179,17 @@ If you prefer manual upgrade:
    ./bin/geth init --datadir data genesis.json
    ```
 
-6. **Restart node**
+6. **(Optional) Reconfigure network**
+
+   Only needed when the server IP changed, the network environment changed, or peer count was stuck at 0 before the upgrade. Edit the NAT section in `start-node.sh` (or `start-node.ps1`) according to your deployment:
+
+   - **Static public IP**: `NAT_CONFIG="extip:<your public IP>"`
+   - **NAT environment** (home): `NAT_CONFIG="any"`
+   - **Auto-detect** (dynamic IP): call the detector script on startup and write the result into `NAT_CONFIG`
+
+   > Prefer step 6 of the upgrade script, which does this automatically and avoids manual editing mistakes.
+
+7. **Restart node**
 
    ```bash
    ./start-node.sh

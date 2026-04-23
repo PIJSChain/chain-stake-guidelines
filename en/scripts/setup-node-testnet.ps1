@@ -459,12 +459,92 @@ function Get-Bootnodes {
     Write-Success "Boot nodes configured"
 }
 
+function Configure-Network {
+    Write-Step 10 "Configuring network environment"
+
+    Write-Host ""
+    Write-Host "Please select your network environment:"
+    Write-Host ""
+    Write-Host "  1) Static public IP - Server has a static public IP address"
+    Write-Host "  2) NAT environment  - Behind a router/NAT gateway (home networks, some cloud VMs)"
+    Write-Host "  3) Auto-detect      - Detect public IP on every startup (recommended)"
+    Write-Host ""
+
+    $done = $false
+    while (-not $done) {
+        $choice = Read-Host "Please choose [1-3] (default: 3)"
+        if ([string]::IsNullOrWhiteSpace($choice)) { $choice = "3" }
+
+        switch ($choice) {
+            "1" {
+                Write-Host ""
+                Write-Info "Detecting your public IP..."
+                $detectedIp = $null
+                foreach ($svc in @("https://ip.sb", "https://api.ipify.org", "https://ifconfig.me/ip", "https://icanhazip.com", "https://ipinfo.io/ip")) {
+                    try {
+                        $result = (Invoke-WebRequest -Uri $svc -UseBasicParsing -TimeoutSec 5 -UserAgent "curl").Content.Trim()
+                        if ($result -match "^\d+\.\d+\.\d+\.\d+$") {
+                            $detectedIp = $result
+                            break
+                        }
+                    } catch {
+                        continue
+                    }
+                }
+
+                if ($detectedIp) {
+                    Write-Host "Detected IP: $detectedIp"
+                    $confirm = Read-Host "Use this IP? (y/n, or enter a different IP)"
+                    if ([string]::IsNullOrWhiteSpace($confirm) -or $confirm -match "^[Yy]$") {
+                        $script:NAT_MODE = "extip"
+                        $script:PUBLIC_IP = $detectedIp
+                        $done = $true
+                    } elseif ($confirm -match "^\d+\.\d+\.\d+\.\d+$") {
+                        $script:NAT_MODE = "extip"
+                        $script:PUBLIC_IP = $confirm
+                        $done = $true
+                    } else {
+                        Write-Host "Invalid input, please try again"
+                    }
+                } else {
+                    $manualIp = Read-Host "Failed to detect public IP, please enter your public IP manually"
+                    if ($manualIp -match "^\d+\.\d+\.\d+\.\d+$") {
+                        $script:NAT_MODE = "extip"
+                        $script:PUBLIC_IP = $manualIp
+                        $done = $true
+                    } else {
+                        Write-Error-Custom "Invalid IP address format"
+                    }
+                }
+            }
+            "2" {
+                $script:NAT_MODE = "any"
+                $script:PUBLIC_IP = ""
+                Write-Info "NAT mode selected, will use UPnP/NAT-PMP for automatic port mapping"
+                $done = $true
+            }
+            "3" {
+                $script:NAT_MODE = "auto"
+                $script:PUBLIC_IP = ""
+                Write-Info "Auto-detect mode, will detect public IP on every startup"
+                $done = $true
+            }
+            default {
+                Write-Host "Invalid choice, please enter 1, 2 or 3"
+            }
+        }
+    }
+
+    Write-Host ""
+    Write-Success "Network environment configured: $NAT_MODE"
+}
+
 function New-StartScript {
-    Write-Step 10 "Generating startup scripts"
+    Write-Step 11 "Generating startup scripts"
 
     $startScript = Join-Path $INSTALL_DIR "start-node.ps1"
 
-    $scriptContent = @"
+    $scriptHeader = @"
 # PIJS Node Startup Script (Windows)
 # Generated: $(Get-Date)
 
@@ -536,42 +616,96 @@ if (`$HTTP_ADDR -eq "0.0.0.0" -or `$WS_ADDR -eq "0.0.0.0") {
     Write-Host ""
 }
 
+# ==================== NAT Configuration ====================
+"@
+
+    switch ($NAT_MODE) {
+        "extip" {
+            $natSection = @"
+# Static public IP mode
+`$NAT_CONFIG = "extip:$PUBLIC_IP"
+Write-Host "NAT config: `$NAT_CONFIG (static public IP)"
+"@
+        }
+        "any" {
+            $natSection = @"
+# NAT environment mode (UPnP/NAT-PMP)
+`$NAT_CONFIG = "any"
+Write-Host "NAT config: `$NAT_CONFIG (automatic port mapping)"
+"@
+        }
+        default {
+            $natSection = @'
+# Auto-detect public IP
+function Get-PublicIp {
+    foreach ($svc in @("https://ip.sb", "https://api.ipify.org", "https://ifconfig.me/ip", "https://icanhazip.com", "https://ipecho.net/plain", "https://ipinfo.io/ip")) {
+        try {
+            $ip = (Invoke-WebRequest -Uri $svc -UseBasicParsing -TimeoutSec 5 -UserAgent "curl").Content.Trim()
+            if ($ip -match "^\d+\.\d+\.\d+\.\d+$") {
+                return $ip
+            }
+        } catch {
+            continue
+        }
+    }
+    return $null
+}
+
+Write-Host "Detecting public IP..."
+$DETECTED_IP = Get-PublicIp
+if ($DETECTED_IP) {
+    $NAT_CONFIG = "extip:$DETECTED_IP"
+    Write-Host "  Detected public IP: $DETECTED_IP"
+    Write-Host "  NAT config: $NAT_CONFIG"
+} else {
+    $NAT_CONFIG = "any"
+    Write-Host "  Failed to detect public IP, falling back to NAT: any"
+}
+'@
+        }
+    }
+
+    $scriptFooter = @'
+
+Write-Host ""
+
 # ==================== Start Node ====================
 Write-Host "Starting node..."
 
-`$args = @(
-    "--datadir", `$DATADIR,
-    "--networkid", `$NETWORK_ID,
+$gethArgs = @(
+    "--datadir", $DATADIR,
+    "--networkid", $NETWORK_ID,
     "--syncmode", "full",
     "--gcmode", "archive",
-    "--cache", `$CACHE_SIZE,
+    "--cache", $CACHE_SIZE,
     "--http",
-    "--http.addr", `$HTTP_ADDR,
-    "--http.port", `$HTTP_PORT,
-    "--http.api", `$HTTP_API,
+    "--http.addr", $HTTP_ADDR,
+    "--http.port", $HTTP_PORT,
+    "--http.api", $HTTP_API,
     "--http.corsdomain", "*",
     "--http.vhosts", "*",
     "--ws",
-    "--ws.addr", `$WS_ADDR,
-    "--ws.port", `$WS_PORT,
-    "--ws.api", `$WS_API,
+    "--ws.addr", $WS_ADDR,
+    "--ws.port", $WS_PORT,
+    "--ws.api", $WS_API,
     "--ws.origins", "*",
     "--authrpc.vhosts", "*",
     "--hybrid.liveness",
-    "--hybrid.withdrawal", `$WITHDRAWAL_ADDRESS,
-    "--hybrid.blskey", `$BLS_KEYFILE,
-    "--hybrid.blspassword", `$BLS_PASSWORD,
-    "--bootnodes", `$BOOTNODES,
-    "--log.file", `$LOG_FILE,
+    "--hybrid.withdrawal", $WITHDRAWAL_ADDRESS,
+    "--hybrid.blskey", $BLS_KEYFILE,
+    "--hybrid.blspassword", $BLS_PASSWORD,
+    "--bootnodes", $BOOTNODES,
+    "--log.file", $LOG_FILE,
     "--log.maxsize", "100",
     "--log.maxbackups", "10",
     "--log.compress",
-    "--nat", "any"
+    "--nat", $NAT_CONFIG
 )
 
-& geth @args
-"@
+& geth @gethArgs
+'@
 
+    $scriptContent = $scriptHeader + "`n" + $natSection + "`n" + $scriptFooter
     Set-Content -Path $startScript -Value $scriptContent
 
     # Generate stop script
@@ -638,6 +772,7 @@ function Main {
     Initialize-Blockchain
     Set-WithdrawalAddress
     Get-Bootnodes
+    Configure-Network
     New-StartScript
 
     Show-Completion
