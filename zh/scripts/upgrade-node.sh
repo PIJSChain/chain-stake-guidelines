@@ -292,6 +292,190 @@ reinit_chain() {
     fi
 }
 
+# 交互式选择 NAT 模式（与 setup 一致）
+choose_nat_mode() {
+    echo ""
+    echo "请选择您的网络环境:"
+    echo ""
+    echo "  1) 固定公网IP - 服务器有固定的公网IP地址"
+    echo "  2) NAT环境   - 位于路由器/NAT网关后面（家庭网络、部分云服务器）"
+    echo "  3) 自动检测  - 每次启动时自动检测公网IP（推荐）"
+    echo ""
+
+    while true; do
+        read -p "请选择 [1-3] (默认: 3): " network_choice
+        network_choice=${network_choice:-3}
+
+        case $network_choice in
+            1)
+                echo ""
+                echo "正在检测您的公网IP..."
+                local detected_ip=""
+                for service in "https://ip.sb" "https://api.ipify.org" "https://ifconfig.me" "https://icanhazip.com" "https://ipinfo.io/ip"; do
+                    detected_ip=$(curl -sA "curl/7" --connect-timeout 3 --max-time 5 "$service" 2>/dev/null | tr -d '[:space:]')
+                    if [[ "$detected_ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                        break
+                    fi
+                done
+
+                if [ -n "$detected_ip" ]; then
+                    echo "检测到IP: $detected_ip"
+                    read -p "使用此IP? (y/n, 或输入其他IP): " ip_confirm
+                    if [ "$ip_confirm" = "y" ] || [ "$ip_confirm" = "Y" ] || [ -z "$ip_confirm" ]; then
+                        NAT_MODE="extip"
+                        PUBLIC_IP="$detected_ip"
+                    elif [[ "$ip_confirm" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                        NAT_MODE="extip"
+                        PUBLIC_IP="$ip_confirm"
+                    else
+                        echo "输入无效，请重试"
+                        continue
+                    fi
+                else
+                    read -p "无法检测公网IP，请手动输入您的公网IP: " PUBLIC_IP
+                    if [[ "$PUBLIC_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                        NAT_MODE="extip"
+                    else
+                        print_error "IP地址格式无效"
+                        continue
+                    fi
+                fi
+                break
+                ;;
+            2)
+                NAT_MODE="any"
+                PUBLIC_IP=""
+                print_info "已选择NAT模式，将使用UPnP/NAT-PMP自动端口映射"
+                break
+                ;;
+            3)
+                NAT_MODE="auto"
+                PUBLIC_IP=""
+                print_info "自动检测模式，每次启动时检测公网IP"
+                break
+                ;;
+            *)
+                echo "选择无效，请输入 1、2 或 3"
+                ;;
+        esac
+    done
+}
+
+# 根据 NAT_MODE 输出 NAT 配置块，供嵌入到 start-node.sh
+emit_nat_section() {
+    if [ "$NAT_MODE" = "extip" ]; then
+        cat << EOF
+# 固定公网IP模式
+NAT_CONFIG="extip:$PUBLIC_IP"
+echo "NAT配置: \$NAT_CONFIG (固定公网IP)"
+EOF
+    elif [ "$NAT_MODE" = "any" ]; then
+        cat << EOF
+# NAT环境模式 (UPnP/NAT-PMP)
+NAT_CONFIG="any"
+echo "NAT配置: \$NAT_CONFIG (自动端口映射)"
+EOF
+    else
+        cat << 'AUTODETECT'
+# 自动检测公网IP
+detect_public_ip() {
+    local ip=""
+    for service in "https://ip.sb" "https://api.ipify.org" "https://ifconfig.me" "https://icanhazip.com" "https://ipecho.net/plain" "https://ipinfo.io/ip"; do
+        ip=$(curl -sA "curl/7" --connect-timeout 3 --max-time 5 "$service" 2>/dev/null | tr -d '[:space:]')
+        if [[ "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "$ip"
+            return 0
+        fi
+    done
+    return 1
+}
+
+echo "正在检测公网IP..."
+DETECTED_IP=$(detect_public_ip)
+if [ -n "$DETECTED_IP" ]; then
+    NAT_CONFIG="extip:$DETECTED_IP"
+    echo "  检测到公网IP: $DETECTED_IP"
+    echo "  NAT配置: $NAT_CONFIG"
+else
+    NAT_CONFIG="any"
+    echo "  未检测到公网IP，使用 NAT: any"
+fi
+AUTODETECT
+    fi
+}
+
+# 可选：重新配置网络
+reconfigure_network() {
+    print_step "6" "网络配置（可选）"
+
+    echo ""
+    echo "此步骤可以重新配置节点的 NAT 网络模式"
+    echo "仅在以下情况需要执行："
+    echo "  - 服务器 IP 变更"
+    echo "  - 从家用网络迁移到云主机（反之亦然）"
+    echo "  - 升级前 NAT 配置不正确（如 peer 数长期为 0）"
+    echo ""
+
+    read -p "是否重新配置网络？(y/N): " reset_network
+    if [ "$reset_network" != "y" ] && [ "$reset_network" != "Y" ]; then
+        print_info "跳过网络配置（保持现有设置）"
+        return
+    fi
+
+    local start_script="$INSTALL_DIR/start-node.sh"
+    if [ ! -f "$start_script" ]; then
+        print_error "未找到 $start_script"
+        print_error "建议重新运行 setup-node-testnet.sh 重新部署"
+        return
+    fi
+
+    # 检查是否为新版 start-node.sh（有明确的 NAT 配置标记）
+    if ! grep -q "^# ==================== NAT 配置 ====================$" "$start_script" || \
+       ! grep -q "^# ==================== 启动节点 ====================$" "$start_script"; then
+        print_error "start-node.sh 格式不兼容（可能是旧版本脚本生成的）"
+        print_error "建议重新运行 setup-node-testnet.sh 重新部署"
+        return
+    fi
+
+    # 询问 NAT 模式
+    choose_nat_mode
+
+    # 生成新的 NAT 配置块到临时文件
+    local nat_block_file
+    nat_block_file=$(mktemp)
+    emit_nat_section > "$nat_block_file"
+
+    # 备份现有 start-node.sh
+    local backup_dir="$INSTALL_DIR/backup"
+    mkdir -p "$backup_dir"
+    local backup_file="$backup_dir/start-node.sh.$(date +%Y%m%d%H%M%S)"
+    cp "$start_script" "$backup_file"
+    print_info "已备份原 start-node.sh 至: $backup_file"
+
+    # 使用 awk 替换两个标记之间的内容
+    local temp_script
+    temp_script=$(mktemp)
+    awk -v nat_file="$nat_block_file" '
+        /^# ==================== NAT 配置 ====================$/ {
+            in_nat = 1
+            print
+            while ((getline line < nat_file) > 0) print line
+            close(nat_file)
+            next
+        }
+        /^# ==================== 启动节点 ====================$/ {
+            in_nat = 0
+        }
+        !in_nat { print }
+    ' "$start_script" > "$temp_script"
+
+    mv "$temp_script" "$start_script"
+    rm -f "$nat_block_file"
+    chmod +x "$start_script"
+
+    print_success "网络配置已更新为: $NAT_MODE"
+}
+
 # 显示完成信息
 show_completion() {
     echo ""
@@ -359,6 +543,7 @@ main() {
     download_client
     download_genesis
     reinit_chain
+    reconfigure_network
 
     show_completion
 }

@@ -459,12 +459,92 @@ function Get-Bootnodes {
     Write-Success "引导节点已配置"
 }
 
+function Configure-Network {
+    Write-Step 10 "配置网络环境"
+
+    Write-Host ""
+    Write-Host "请选择您的网络环境:"
+    Write-Host ""
+    Write-Host "  1) 固定公网IP - 服务器有固定的公网IP地址"
+    Write-Host "  2) NAT环境   - 位于路由器/NAT网关后面（家庭网络、部分云服务器）"
+    Write-Host "  3) 自动检测  - 每次启动时自动检测公网IP（推荐）"
+    Write-Host ""
+
+    $done = $false
+    while (-not $done) {
+        $choice = Read-Host "请选择 [1-3] (默认: 3)"
+        if ([string]::IsNullOrWhiteSpace($choice)) { $choice = "3" }
+
+        switch ($choice) {
+            "1" {
+                Write-Host ""
+                Write-Info "正在检测您的公网IP..."
+                $detectedIp = $null
+                foreach ($svc in @("https://ip.sb", "https://api.ipify.org", "https://ifconfig.me/ip", "https://icanhazip.com", "https://ipinfo.io/ip")) {
+                    try {
+                        $result = (Invoke-WebRequest -Uri $svc -UseBasicParsing -TimeoutSec 5 -UserAgent "curl").Content.Trim()
+                        if ($result -match "^\d+\.\d+\.\d+\.\d+$") {
+                            $detectedIp = $result
+                            break
+                        }
+                    } catch {
+                        continue
+                    }
+                }
+
+                if ($detectedIp) {
+                    Write-Host "检测到IP: $detectedIp"
+                    $confirm = Read-Host "使用此IP? (y/n, 或输入其他IP)"
+                    if ([string]::IsNullOrWhiteSpace($confirm) -or $confirm -match "^[Yy]$") {
+                        $script:NAT_MODE = "extip"
+                        $script:PUBLIC_IP = $detectedIp
+                        $done = $true
+                    } elseif ($confirm -match "^\d+\.\d+\.\d+\.\d+$") {
+                        $script:NAT_MODE = "extip"
+                        $script:PUBLIC_IP = $confirm
+                        $done = $true
+                    } else {
+                        Write-Host "输入无效，请重试"
+                    }
+                } else {
+                    $manualIp = Read-Host "无法检测公网IP，请手动输入您的公网IP"
+                    if ($manualIp -match "^\d+\.\d+\.\d+\.\d+$") {
+                        $script:NAT_MODE = "extip"
+                        $script:PUBLIC_IP = $manualIp
+                        $done = $true
+                    } else {
+                        Write-Error-Custom "IP地址格式无效"
+                    }
+                }
+            }
+            "2" {
+                $script:NAT_MODE = "any"
+                $script:PUBLIC_IP = ""
+                Write-Info "已选择NAT模式，将使用UPnP/NAT-PMP自动端口映射"
+                $done = $true
+            }
+            "3" {
+                $script:NAT_MODE = "auto"
+                $script:PUBLIC_IP = ""
+                Write-Info "自动检测模式，每次启动时检测公网IP"
+                $done = $true
+            }
+            default {
+                Write-Host "选择无效，请输入 1、2 或 3"
+            }
+        }
+    }
+
+    Write-Host ""
+    Write-Success "网络环境已配置: $NAT_MODE"
+}
+
 function New-StartScript {
-    Write-Step 10 "生成启动脚本"
+    Write-Step 11 "生成启动脚本"
 
     $startScript = Join-Path $INSTALL_DIR "start-node.ps1"
 
-    $scriptContent = @"
+    $scriptHeader = @"
 # PIJS 节点启动脚本 (Windows)
 # 生成时间: $(Get-Date)
 
@@ -536,42 +616,96 @@ if (`$HTTP_ADDR -eq "0.0.0.0" -or `$WS_ADDR -eq "0.0.0.0") {
     Write-Host ""
 }
 
+# ==================== NAT 配置 ====================
+"@
+
+    switch ($NAT_MODE) {
+        "extip" {
+            $natSection = @"
+# 固定公网IP模式
+`$NAT_CONFIG = "extip:$PUBLIC_IP"
+Write-Host "NAT配置: `$NAT_CONFIG (固定公网IP)"
+"@
+        }
+        "any" {
+            $natSection = @"
+# NAT环境模式 (UPnP/NAT-PMP)
+`$NAT_CONFIG = "any"
+Write-Host "NAT配置: `$NAT_CONFIG (自动端口映射)"
+"@
+        }
+        default {
+            $natSection = @'
+# 自动检测公网IP
+function Get-PublicIp {
+    foreach ($svc in @("https://ip.sb", "https://api.ipify.org", "https://ifconfig.me/ip", "https://icanhazip.com", "https://ipecho.net/plain", "https://ipinfo.io/ip")) {
+        try {
+            $ip = (Invoke-WebRequest -Uri $svc -UseBasicParsing -TimeoutSec 5 -UserAgent "curl").Content.Trim()
+            if ($ip -match "^\d+\.\d+\.\d+\.\d+$") {
+                return $ip
+            }
+        } catch {
+            continue
+        }
+    }
+    return $null
+}
+
+Write-Host "正在检测公网IP..."
+$DETECTED_IP = Get-PublicIp
+if ($DETECTED_IP) {
+    $NAT_CONFIG = "extip:$DETECTED_IP"
+    Write-Host "  检测到公网IP: $DETECTED_IP"
+    Write-Host "  NAT配置: $NAT_CONFIG"
+} else {
+    $NAT_CONFIG = "any"
+    Write-Host "  未检测到公网IP，回退到 NAT: any"
+}
+'@
+        }
+    }
+
+    $scriptFooter = @'
+
+Write-Host ""
+
 # ==================== 启动节点 ====================
 Write-Host "正在启动节点..."
 
-`$args = @(
-    "--datadir", `$DATADIR,
-    "--networkid", `$NETWORK_ID,
+$gethArgs = @(
+    "--datadir", $DATADIR,
+    "--networkid", $NETWORK_ID,
     "--syncmode", "full",
     "--gcmode", "archive",
-    "--cache", `$CACHE_SIZE,
+    "--cache", $CACHE_SIZE,
     "--http",
-    "--http.addr", `$HTTP_ADDR,
-    "--http.port", `$HTTP_PORT,
-    "--http.api", `$HTTP_API,
+    "--http.addr", $HTTP_ADDR,
+    "--http.port", $HTTP_PORT,
+    "--http.api", $HTTP_API,
     "--http.corsdomain", "*",
     "--http.vhosts", "*",
     "--ws",
-    "--ws.addr", `$WS_ADDR,
-    "--ws.port", `$WS_PORT,
-    "--ws.api", `$WS_API,
+    "--ws.addr", $WS_ADDR,
+    "--ws.port", $WS_PORT,
+    "--ws.api", $WS_API,
     "--ws.origins", "*",
     "--authrpc.vhosts", "*",
     "--hybrid.liveness",
-    "--hybrid.withdrawal", `$WITHDRAWAL_ADDRESS,
-    "--hybrid.blskey", `$BLS_KEYFILE,
-    "--hybrid.blspassword", `$BLS_PASSWORD,
-    "--bootnodes", `$BOOTNODES,
-    "--log.file", `$LOG_FILE,
+    "--hybrid.withdrawal", $WITHDRAWAL_ADDRESS,
+    "--hybrid.blskey", $BLS_KEYFILE,
+    "--hybrid.blspassword", $BLS_PASSWORD,
+    "--bootnodes", $BOOTNODES,
+    "--log.file", $LOG_FILE,
     "--log.maxsize", "100",
     "--log.maxbackups", "10",
     "--log.compress",
-    "--nat", "any"
+    "--nat", $NAT_CONFIG
 )
 
-& geth @args
-"@
+& geth @gethArgs
+'@
 
+    $scriptContent = $scriptHeader + "`n" + $natSection + "`n" + $scriptFooter
     Set-Content -Path $startScript -Value $scriptContent
 
     # 生成停止脚本
@@ -638,6 +772,7 @@ function Main {
     Initialize-Blockchain
     Set-WithdrawalAddress
     Get-Bootnodes
+    Configure-Network
     New-StartScript
 
     Show-Completion

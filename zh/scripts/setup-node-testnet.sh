@@ -565,8 +565,8 @@ configure_network() {
                 echo ""
                 echo "正在检测您的公网IP..."
                 detected_ip=""
-                for service in "https://api.ipify.org" "https://ifconfig.me" "https://icanhazip.com"; do
-                    detected_ip=$(curl -s --connect-timeout 3 --max-time 5 "$service" 2>/dev/null | tr -d '[:space:]')
+                for service in "https://ip.sb" "https://api.ipify.org" "https://ifconfig.me" "https://icanhazip.com" "https://ipinfo.io/ip"; do
+                    detected_ip=$(curl -sA "curl/7" --connect-timeout 3 --max-time 5 "$service" 2>/dev/null | tr -d '[:space:]')
                     if [[ "$detected_ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
                         break
                     fi
@@ -723,8 +723,8 @@ EOF
 # 自动检测公网IP
 detect_public_ip() {
     local ip=""
-    for service in "https://api.ipify.org" "https://ifconfig.me" "https://icanhazip.com" "https://ipecho.net/plain"; do
-        ip=$(curl -s --connect-timeout 3 --max-time 5 "$service" 2>/dev/null | tr -d '[:space:]')
+    for service in "https://ip.sb" "https://api.ipify.org" "https://ifconfig.me" "https://icanhazip.com" "https://ipecho.net/plain" "https://ipinfo.io/ip"; do
+        ip=$(curl -sA "curl/7" --connect-timeout 3 --max-time 5 "$service" 2>/dev/null | tr -d '[:space:]')
         if [[ "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "$ip"
             return 0

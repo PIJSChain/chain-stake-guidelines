@@ -249,6 +249,200 @@ function Initialize-Chain {
     }
 }
 
+# 交互式选择 NAT 模式（与 setup 一致）
+function Choose-NatMode {
+    Write-Host ""
+    Write-Host "请选择您的网络环境:"
+    Write-Host ""
+    Write-Host "  1) 固定公网IP - 服务器有固定的公网IP地址"
+    Write-Host "  2) NAT环境   - 位于路由器/NAT网关后面（家庭网络、部分云服务器）"
+    Write-Host "  3) 自动检测  - 每次启动时自动检测公网IP（推荐）"
+    Write-Host ""
+
+    $done = $false
+    while (-not $done) {
+        $choice = Read-Host "请选择 [1-3] (默认: 3)"
+        if ([string]::IsNullOrWhiteSpace($choice)) { $choice = "3" }
+
+        switch ($choice) {
+            "1" {
+                Write-Host ""
+                Write-Info "正在检测您的公网IP..."
+                $detectedIp = $null
+                foreach ($svc in @("https://ip.sb", "https://api.ipify.org", "https://ifconfig.me/ip", "https://icanhazip.com", "https://ipinfo.io/ip")) {
+                    try {
+                        $result = (Invoke-WebRequest -Uri $svc -UseBasicParsing -TimeoutSec 5 -UserAgent "curl").Content.Trim()
+                        if ($result -match "^\d+\.\d+\.\d+\.\d+$") {
+                            $detectedIp = $result
+                            break
+                        }
+                    } catch {
+                        continue
+                    }
+                }
+
+                if ($detectedIp) {
+                    Write-Host "检测到IP: $detectedIp"
+                    $confirm = Read-Host "使用此IP? (y/n, 或输入其他IP)"
+                    if ([string]::IsNullOrWhiteSpace($confirm) -or $confirm -match "^[Yy]$") {
+                        $script:NAT_MODE = "extip"
+                        $script:PUBLIC_IP = $detectedIp
+                        $done = $true
+                    } elseif ($confirm -match "^\d+\.\d+\.\d+\.\d+$") {
+                        $script:NAT_MODE = "extip"
+                        $script:PUBLIC_IP = $confirm
+                        $done = $true
+                    } else {
+                        Write-Host "输入无效，请重试"
+                    }
+                } else {
+                    $manualIp = Read-Host "无法检测公网IP，请手动输入您的公网IP"
+                    if ($manualIp -match "^\d+\.\d+\.\d+\.\d+$") {
+                        $script:NAT_MODE = "extip"
+                        $script:PUBLIC_IP = $manualIp
+                        $done = $true
+                    } else {
+                        Write-Error "IP地址格式无效"
+                    }
+                }
+            }
+            "2" {
+                $script:NAT_MODE = "any"
+                $script:PUBLIC_IP = ""
+                Write-Info "已选择NAT模式，将使用UPnP/NAT-PMP自动端口映射"
+                $done = $true
+            }
+            "3" {
+                $script:NAT_MODE = "auto"
+                $script:PUBLIC_IP = ""
+                Write-Info "自动检测模式，每次启动时检测公网IP"
+                $done = $true
+            }
+            default {
+                Write-Host "选择无效，请输入 1、2 或 3"
+            }
+        }
+    }
+}
+
+# 根据 NAT_MODE 返回 NAT 配置块（供嵌入 start-node.ps1）
+function Get-NatSection {
+    switch ($script:NAT_MODE) {
+        "extip" {
+            return @"
+# 固定公网IP模式
+`$NAT_CONFIG = "extip:$($script:PUBLIC_IP)"
+Write-Host "NAT配置: `$NAT_CONFIG (固定公网IP)"
+"@
+        }
+        "any" {
+            return @"
+# NAT环境模式 (UPnP/NAT-PMP)
+`$NAT_CONFIG = "any"
+Write-Host "NAT配置: `$NAT_CONFIG (自动端口映射)"
+"@
+        }
+        default {
+            return @'
+# 自动检测公网IP
+function Get-PublicIp {
+    foreach ($svc in @("https://ip.sb", "https://api.ipify.org", "https://ifconfig.me/ip", "https://icanhazip.com", "https://ipecho.net/plain", "https://ipinfo.io/ip")) {
+        try {
+            $ip = (Invoke-WebRequest -Uri $svc -UseBasicParsing -TimeoutSec 5 -UserAgent "curl").Content.Trim()
+            if ($ip -match "^\d+\.\d+\.\d+\.\d+$") {
+                return $ip
+            }
+        } catch {
+            continue
+        }
+    }
+    return $null
+}
+
+Write-Host "正在检测公网IP..."
+$DETECTED_IP = Get-PublicIp
+if ($DETECTED_IP) {
+    $NAT_CONFIG = "extip:$DETECTED_IP"
+    Write-Host "  检测到公网IP: $DETECTED_IP"
+    Write-Host "  NAT配置: $NAT_CONFIG"
+} else {
+    $NAT_CONFIG = "any"
+    Write-Host "  未检测到公网IP，回退到 NAT: any"
+}
+'@
+        }
+    }
+}
+
+# 可选：重新配置网络
+function Reconfigure-Network {
+    param([string]$InstallDir)
+
+    Write-Step "6" "网络配置（可选）"
+
+    Write-Host ""
+    Write-Host "此步骤可以重新配置节点的 NAT 网络模式"
+    Write-Host "仅在以下情况需要执行："
+    Write-Host "  - 服务器 IP 变更"
+    Write-Host "  - 从家用网络迁移到云主机（反之亦然）"
+    Write-Host "  - 升级前 NAT 配置不正确（如 peer 数长期为 0）"
+    Write-Host ""
+
+    $reset = Read-Host "是否重新配置网络？(y/N)"
+    if ($reset -notmatch "^[Yy]$") {
+        Write-Info "跳过网络配置（保持现有设置）"
+        return
+    }
+
+    $startScript = Join-Path $InstallDir "start-node.ps1"
+    if (-not (Test-Path $startScript)) {
+        Write-Error "未找到 $startScript"
+        Write-Error "建议重新运行 setup-node-testnet.ps1 重新部署"
+        return
+    }
+
+    # 定位 NAT 配置块的起止行
+    $content = Get-Content $startScript
+    $startIdx = -1
+    $endIdx = -1
+    for ($i = 0; $i -lt $content.Count; $i++) {
+        if ($content[$i] -match "^# ==================== NAT 配置 ====================$") { $startIdx = $i }
+        if ($content[$i] -match "^# ==================== 启动节点 ====================$") { $endIdx = $i; break }
+    }
+
+    if ($startIdx -lt 0 -or $endIdx -lt 0 -or $endIdx -le $startIdx) {
+        Write-Error "start-node.ps1 格式不兼容（可能是旧版本脚本生成的）"
+        Write-Error "建议重新运行 setup-node-testnet.ps1 重新部署"
+        return
+    }
+
+    # 询问 NAT 模式
+    Choose-NatMode
+
+    # 备份现有 start-node.ps1
+    $backupDir = Join-Path $InstallDir "backup"
+    if (-not (Test-Path $backupDir)) {
+        New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
+    }
+    $timestamp = Get-Date -Format "yyyyMMddHHmmss"
+    $backupFile = Join-Path $backupDir "start-node.ps1.$timestamp"
+    Copy-Item $startScript $backupFile
+    Write-Info "已备份原 start-node.ps1 至: $backupFile"
+
+    # 生成新 NAT 配置块（按行切分）
+    $natSection = Get-NatSection
+    $natLines = $natSection -split "`r?`n"
+
+    # 重建: [0..startIdx] + 新NAT + [endIdx..end]
+    $newContent = @()
+    $newContent += $content[0..$startIdx]
+    $newContent += $natLines
+    $newContent += $content[$endIdx..($content.Count - 1)]
+    Set-Content -Path $startScript -Value $newContent
+
+    Write-Success "网络配置已更新为: $($script:NAT_MODE)"
+}
+
 # 显示完成信息
 function Show-Completion {
     param([string]$InstallDir)
@@ -320,6 +514,7 @@ function Main {
     Download-Client -InstallDir $installDir
     Download-Genesis -InstallDir $installDir
     Initialize-Chain -InstallDir $installDir
+    Reconfigure-Network -InstallDir $installDir
 
     Show-Completion -InstallDir $installDir
 }
