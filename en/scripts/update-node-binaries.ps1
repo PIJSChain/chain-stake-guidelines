@@ -52,6 +52,40 @@ function Write-Success {
     Write-Host "[OK] $Message" -ForegroundColor Green
 }
 
+# Validate that a file is a complete gzip archive (guards against truncated downloads or HTML error pages)
+function Test-GzipArchive {
+    param([string]$Path, [long]$MinSize = 1048576)
+
+    if (-not (Test-Path $Path)) {
+        Write-Error-Custom "Downloaded file not found: $Path"
+        return $false
+    }
+
+    $size = (Get-Item $Path).Length
+    if ($size -lt $MinSize) {
+        Write-Error-Custom "Downloaded file too small ($size bytes, expected >= $MinSize), likely truncated"
+        return $false
+    }
+
+    try {
+        $stream = [System.IO.File]::OpenRead($Path)
+        $magic = New-Object byte[] 2
+        [void]$stream.Read($magic, 0, 2)
+        $stream.Close()
+    } catch {
+        Write-Error-Custom "Cannot read downloaded file: $_"
+        return $false
+    }
+
+    if ($magic[0] -ne 0x1f -or $magic[1] -ne 0x8b) {
+        $hex = "{0:X2}{1:X2}" -f $magic[0], $magic[1]
+        Write-Error-Custom "Not a valid gzip archive (magic=$hex), download may have been truncated or redirected to an HTML page"
+        return $false
+    }
+
+    return $true
+}
+
 # ==================== Main Workflow ====================
 
 function Test-Dependencies {
@@ -146,11 +180,15 @@ function Install-LatestBinaries {
         Write-Info "Download URL: $downloadUrl"
         Invoke-WebRequest -Uri $downloadUrl -OutFile $archivePath -UseBasicParsing
 
-        if (-not (Test-Path $archivePath) -or (Get-Item $archivePath).Length -eq 0) {
-            throw "Download failed or archive is empty"
+        # Verify download integrity (size + gzip magic)
+        if (-not (Test-GzipArchive -Path $archivePath)) {
+            throw "Downloaded archive failed validation. Please check your network and retry, or download manually: $downloadUrl"
         }
 
         tar -xzf $archivePath -C $tempRoot
+        if ($LASTEXITCODE -ne 0) {
+            throw "Extraction failed (tar exit code: $LASTEXITCODE), archive may be corrupted"
+        }
 
         $installed = $false
         foreach ($binary in $BinaryNames) {
@@ -175,19 +213,26 @@ function Install-LatestBinaries {
     }
 
     $gethPath = Join-Path $binDir "geth.exe"
-    if (Test-Path $gethPath) {
-        try {
-            $versionLine = (& $gethPath version 2>&1 | Select-String "Version:" | Select-Object -First 1).ToString().Trim()
-            if ([string]::IsNullOrWhiteSpace($versionLine)) {
-                Write-Success "Binary update complete, release tag: $($script:LatestVersion)"
-            } elseif ($versionLine -match [regex]::Escape($script:LatestVersion) -or $versionLine -match [regex]::Escape($script:LatestVersion.TrimStart('v'))) {
-                Write-Success "Binary update complete: $versionLine"
-            } else {
-                Write-Success "Binary update complete, release tag: $($script:LatestVersion), $versionLine"
-            }
-        } catch {
-            Write-Success "Binary update complete, release tag: $($script:LatestVersion)"
-        }
+    if (-not (Test-Path $gethPath)) {
+        Write-Error-Custom "Extraction completed but geth.exe was not found; archive contents are abnormal"
+        exit 1
+    }
+
+    $versionOutput = & $gethPath version 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error-Custom "geth.exe failed to run (exit code: $LASTEXITCODE):"
+        Write-Host ($versionOutput -join "`n")
+        exit 1
+    }
+
+    $matchedVersion = $versionOutput | Select-String "Version:" | Select-Object -First 1
+    $versionLine = if ($matchedVersion) { $matchedVersion.ToString().Trim() } else { "" }
+    if ([string]::IsNullOrWhiteSpace($versionLine)) {
+        Write-Success "Binary update complete, release tag: $($script:LatestVersion)"
+    } elseif ($versionLine -match [regex]::Escape($script:LatestVersion) -or $versionLine -match [regex]::Escape($script:LatestVersion.TrimStart('v'))) {
+        Write-Success "Binary update complete: $versionLine"
+    } else {
+        Write-Success "Binary update complete, release tag: $($script:LatestVersion), $versionLine"
     }
 }
 

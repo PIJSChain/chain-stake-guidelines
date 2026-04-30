@@ -51,6 +51,34 @@ print_success() {
     echo -e "${GREEN}[OK]${NC} $1"
 }
 
+# Validate that a file is a complete gzip archive (guards against truncated downloads or HTML error pages)
+# Usage: verify_gzip_archive <path> [min_bytes]
+verify_gzip_archive() {
+    local path="$1"
+    local min_size="${2:-1048576}"
+
+    if [ ! -f "$path" ]; then
+        print_error "Downloaded file not found: $path"
+        return 1
+    fi
+
+    local size
+    size=$(wc -c < "$path" 2>/dev/null | tr -d ' ')
+    if [ -z "$size" ] || [ "$size" -lt "$min_size" ]; then
+        print_error "Downloaded file too small (${size:-0} bytes, expected >= ${min_size}), likely truncated"
+        return 1
+    fi
+
+    local magic
+    magic=$(head -c 2 "$path" 2>/dev/null | od -An -tx1 2>/dev/null | tr -d ' \n')
+    if [ "$magic" != "1f8b" ]; then
+        print_error "Not a valid gzip archive (magic=${magic:-unknown}), download may have been truncated or redirected to an HTML page"
+        return 1
+    fi
+
+    return 0
+}
+
 check_command() {
     command -v "$1" >/dev/null 2>&1
 }
@@ -180,12 +208,16 @@ install_latest_binaries() {
     print_info "Download URL: $download_url"
     download_file "$download_url" "$tmp_dir/$archive_name"
 
-    if [ ! -s "$tmp_dir/$archive_name" ]; then
-        print_error "Download failed or archive is empty"
+    # Verify download integrity (size + gzip magic)
+    if ! verify_gzip_archive "$tmp_dir/$archive_name"; then
+        print_error "Please check your network and retry, or download manually: $download_url"
         exit 1
     fi
 
-    tar -xzf "$tmp_dir/$archive_name" -C "$tmp_dir"
+    if ! tar -xzf "$tmp_dir/$archive_name" -C "$tmp_dir"; then
+        print_error "Extraction failed, archive may be corrupted"
+        exit 1
+    fi
     mkdir -p "$INSTALL_DIR/bin"
 
     for binary in geth bootnode abigen clef evm rlpdump devp2p ethkey p2psim; do
@@ -202,7 +234,18 @@ install_latest_binaries() {
         exit 1
     fi
 
-    CURRENT_VERSION=$($INSTALL_DIR/bin/geth version 2>/dev/null | awk '/Version:/ {print $2; exit}')
+    # Verify geth runs
+    if [ ! -x "$INSTALL_DIR/bin/geth" ]; then
+        print_error "Extraction completed but geth was not found; archive contents are abnormal"
+        exit 1
+    fi
+    if ! "$INSTALL_DIR/bin/geth" version >/dev/null 2>&1; then
+        print_error "geth failed to run — binary may be corrupted"
+        "$INSTALL_DIR/bin/geth" version || true
+        exit 1
+    fi
+
+    CURRENT_VERSION=$("$INSTALL_DIR/bin/geth" version 2>/dev/null | awk '/Version:/ {print $2; exit}')
     CURRENT_VERSION=${CURRENT_VERSION:-}
 
     if [ -n "$CURRENT_VERSION" ] && [ "$CURRENT_VERSION" != "${LATEST_VERSION#v}" ] && [ "$CURRENT_VERSION" != "$LATEST_VERSION" ]; then

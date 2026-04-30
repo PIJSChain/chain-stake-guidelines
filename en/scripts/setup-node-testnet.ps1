@@ -57,6 +57,40 @@ function Write-Success {
     Write-Host $Message
 }
 
+# Validate that a file is a complete gzip archive (guards against truncated downloads or HTML error pages)
+function Test-GzipArchive {
+    param([string]$Path, [long]$MinSize = 1048576)
+
+    if (-not (Test-Path $Path)) {
+        Write-Error-Custom "Downloaded file not found: $Path"
+        return $false
+    }
+
+    $size = (Get-Item $Path).Length
+    if ($size -lt $MinSize) {
+        Write-Error-Custom "Downloaded file too small ($size bytes, expected >= $MinSize), likely truncated"
+        return $false
+    }
+
+    try {
+        $stream = [System.IO.File]::OpenRead($Path)
+        $magic = New-Object byte[] 2
+        [void]$stream.Read($magic, 0, 2)
+        $stream.Close()
+    } catch {
+        Write-Error-Custom "Cannot read downloaded file: $_"
+        return $false
+    }
+
+    if ($magic[0] -ne 0x1f -or $magic[1] -ne 0x8b) {
+        $hex = "{0:X2}{1:X2}" -f $magic[0], $magic[1]
+        Write-Error-Custom "Not a valid gzip archive (magic=$hex), download may have been truncated or redirected to an HTML page"
+        return $false
+    }
+
+    return $true
+}
+
 function Test-GethInstalled {
     try {
         $null = Get-Command geth -ErrorAction Stop
@@ -141,7 +175,16 @@ function Get-GethBinary {
 
     $downloadPath = Join-Path $INSTALL_DIR $gethTar
 
-    # Download file
+    # Download file (re-download if existing file is corrupted)
+    if (Test-Path $downloadPath) {
+        if (Test-GzipArchive -Path $downloadPath) {
+            Write-Info "Found valid downloaded file, skipping download"
+        } else {
+            Write-Warn "Found corrupted or incomplete download, re-downloading"
+            Remove-Item $downloadPath -Force -ErrorAction SilentlyContinue
+        }
+    }
+
     if (-not (Test-Path $downloadPath)) {
         try {
             Invoke-WebRequest -Uri $gethUrl -OutFile $downloadPath -UseBasicParsing
@@ -150,14 +193,24 @@ function Get-GethBinary {
             Write-Error-Custom "Download failed: $_"
             exit 1
         }
-    } else {
-        Write-Info "Found downloaded file, skipping download"
+
+        # Verify download integrity (size + gzip magic)
+        if (-not (Test-GzipArchive -Path $downloadPath)) {
+            Remove-Item $downloadPath -Force -ErrorAction SilentlyContinue
+            Write-Error-Custom "Please check your network and retry, or download manually: $gethUrl"
+            exit 1
+        }
     }
 
     # Extract (requires tar command, built-in on Windows 10+)
     Write-Info "Extracting files..."
     Set-Location $INSTALL_DIR
     tar -xzf $gethTar
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error-Custom "Extraction failed (tar exit code: $LASTEXITCODE), archive may be corrupted"
+        Remove-Item $downloadPath -Force -ErrorAction SilentlyContinue
+        exit 1
+    }
 
     # Create bin directory
     $binDir = Join-Path $INSTALL_DIR "bin"
@@ -191,15 +244,19 @@ function Get-GethBinary {
 
     # Verify installation
     $gethPath = Join-Path $binDir "geth.exe"
-    if (Test-Path $gethPath) {
-        & $gethPath version
-        Write-Success "Node program installation complete"
-        Write-Info "Binary location: $binDir"
-        Write-Warn "Please reopen PowerShell window for environment variables to take effect"
-    } else {
-        Write-Error-Custom "geth installation failed"
+    if (-not (Test-Path $gethPath)) {
+        Write-Error-Custom "geth installation failed: $gethPath not found"
         exit 1
     }
+
+    & $gethPath version
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error-Custom "geth.exe failed to run (exit code: $LASTEXITCODE), binary may be corrupted"
+        exit 1
+    }
+    Write-Success "Node program installation complete"
+    Write-Info "Binary location: $binDir"
+    Write-Warn "Please reopen PowerShell window for environment variables to take effect"
 }
 
 function Get-GenesisConfig {
@@ -241,6 +298,21 @@ function Get-GenesisConfig {
             Write-Error-Custom "genesis.json file does not exist"
             exit 1
         }
+    }
+
+    # Verify genesis.json integrity
+    if ((Get-Item $genesisPath).Length -lt 100) {
+        Write-Error-Custom "genesis.json is too small, download may have been truncated"
+        Remove-Item $genesisPath -Force -ErrorAction SilentlyContinue
+        exit 1
+    }
+
+    try {
+        Get-Content $genesisPath -Raw | ConvertFrom-Json | Out-Null
+    } catch {
+        Write-Error-Custom "genesis.json is not valid JSON, download may have been truncated: $_"
+        Remove-Item $genesisPath -Force -ErrorAction SilentlyContinue
+        exit 1
     }
 
     Write-Success "Genesis configuration ready"

@@ -55,6 +55,35 @@ print_success() {
     echo -e "${GREEN}[OK]${NC} $1"
 }
 
+# Validate that a file is a complete gzip archive (guards against truncated downloads or HTML error pages)
+# Usage: verify_gzip_archive <path> [min_bytes]
+verify_gzip_archive() {
+    local path="$1"
+    local min_size="${2:-1048576}"
+
+    if [ ! -f "$path" ]; then
+        print_error "Downloaded file not found: $path"
+        return 1
+    fi
+
+    local size
+    size=$(wc -c < "$path" 2>/dev/null | tr -d ' ')
+    if [ -z "$size" ] || [ "$size" -lt "$min_size" ]; then
+        print_error "Downloaded file too small (${size:-0} bytes, expected >= ${min_size}), likely truncated"
+        return 1
+    fi
+
+    # Verify gzip magic bytes (1f 8b)
+    local magic
+    magic=$(head -c 2 "$path" 2>/dev/null | od -An -tx1 2>/dev/null | tr -d ' \n')
+    if [ "$magic" != "1f8b" ]; then
+        print_error "Not a valid gzip archive (magic=${magic:-unknown}), download may have been truncated or redirected to an HTML page"
+        return 1
+    fi
+
+    return 0
+}
+
 # Detect OS and architecture
 detect_platform() {
     OS=$(uname -s | tr '[:upper:]' '[:lower:]')
@@ -189,24 +218,20 @@ download_client() {
         exit 1
     fi
 
-    # Verify download
-    if [ ! -f "$geth_tar" ] || [ ! -s "$geth_tar" ]; then
-        print_error "Download failed or file is empty"
+    # Verify download integrity (size + gzip magic)
+    if ! verify_gzip_archive "$geth_tar"; then
+        rm -f "$geth_tar"
+        print_error "Please check your network and retry, or download manually: $download_url"
         exit 1
     fi
 
-    # Verify it's a valid gzip archive
-    local file_type=$(file "$geth_tar" 2>/dev/null)
-    if ! echo "$file_type" | grep -qE "gzip|compressed"; then
-        print_error "Downloaded file is not a valid archive"
-        print_error "File type: $file_type"
+    # Extract (check tar exit code explicitly; abort on failure)
+    print_info "Extracting files..."
+    if ! tar -xzf "$geth_tar"; then
+        print_error "Extraction failed, archive may be corrupted"
         rm -f "$geth_tar"
         exit 1
     fi
-
-    # Extract
-    print_info "Extracting files..."
-    tar -xzf "$geth_tar"
 
     # Ensure bin directory exists
     mkdir -p "$bin_dir"
@@ -221,6 +246,19 @@ download_client() {
 
     # Clean up archive
     rm -f "$geth_tar"
+
+    # Verify geth was extracted
+    if [ ! -x "$bin_dir/geth" ]; then
+        print_error "Extraction completed but $bin_dir/geth was not found; archive contents are abnormal"
+        exit 1
+    fi
+
+    # Verify geth runs
+    if ! "$bin_dir/geth" version >/dev/null 2>&1; then
+        print_error "geth failed to run — binary may be corrupted"
+        "$bin_dir/geth" version || true
+        exit 1
+    fi
 
     # Update binaries in /usr/local/bin
     if [ -f "/usr/local/bin/geth" ]; then
@@ -259,14 +297,32 @@ download_genesis() {
     print_info "Downloading from: $GENESIS_URL"
 
     if command -v curl &> /dev/null; then
-        curl -L -o genesis.json "$GENESIS_URL" --progress-bar
+        curl -fL -o genesis.json "$GENESIS_URL" --progress-bar || true
     elif command -v wget &> /dev/null; then
-        wget -O genesis.json "$GENESIS_URL" --show-progress
+        wget -O genesis.json "$GENESIS_URL" --show-progress || true
     fi
 
-    if [ ! -f "genesis.json" ] || [ ! -s "genesis.json" ]; then
-        print_error "Failed to download genesis.json"
+    local genesis_size
+    genesis_size=$(wc -c < genesis.json 2>/dev/null | tr -d ' ' || echo 0)
+    if [ ! -f "genesis.json" ] || [ "${genesis_size:-0}" -lt 100 ]; then
+        print_error "Failed to download genesis.json or file is too small (${genesis_size:-0} bytes)"
+        rm -f genesis.json
         exit 1
+    fi
+
+    # Validate JSON syntax
+    if command -v python3 &> /dev/null; then
+        if ! python3 -c "import json,sys; json.load(open('genesis.json'))" 2>/dev/null; then
+            print_error "genesis.json is not valid JSON, download may have been truncated"
+            rm -f genesis.json
+            exit 1
+        fi
+    elif command -v python &> /dev/null; then
+        if ! python -c "import json,sys; json.load(open('genesis.json'))" 2>/dev/null; then
+            print_error "genesis.json is not valid JSON, download may have been truncated"
+            rm -f genesis.json
+            exit 1
+        fi
     fi
 
     print_success "Genesis configuration downloaded"

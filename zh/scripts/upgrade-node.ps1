@@ -52,6 +52,40 @@ function Write-Success {
     Write-Host "[完成] $Message" -ForegroundColor Green
 }
 
+# 校验文件是否为完整的 gzip 压缩包(防止下载被截断或重定向到 HTML 错误页)
+function Test-GzipArchive {
+    param([string]$Path, [long]$MinSize = 1048576)
+
+    if (-not (Test-Path $Path)) {
+        Write-Error "下载的文件不存在: $Path"
+        return $false
+    }
+
+    $size = (Get-Item $Path).Length
+    if ($size -lt $MinSize) {
+        Write-Error "下载文件过小($size 字节, 期望 >= $MinSize 字节)，可能被截断或下载失败"
+        return $false
+    }
+
+    try {
+        $stream = [System.IO.File]::OpenRead($Path)
+        $magic = New-Object byte[] 2
+        [void]$stream.Read($magic, 0, 2)
+        $stream.Close()
+    } catch {
+        Write-Error "无法读取下载文件: $_"
+        return $false
+    }
+
+    if ($magic[0] -ne 0x1f -or $magic[1] -ne 0x8b) {
+        $hex = "{0:X2}{1:X2}" -f $magic[0], $magic[1]
+        Write-Error "下载文件不是有效的 gzip 压缩包(魔数=$hex)，可能下载被截断或被重定向到 HTML 错误页"
+        return $false
+    }
+
+    return $true
+}
+
 # 检查节点是否运行
 function Test-NodeRunning {
     param([string]$InstallDir)
@@ -151,16 +185,22 @@ function Download-Client {
         exit 1
     }
 
-    # 验证下载
-    if (-not (Test-Path $downloadPath) -or (Get-Item $downloadPath).Length -eq 0) {
-        Write-Error "下载失败或文件为空"
+    # 校验下载完整性(大小 + gzip 魔数)
+    if (-not (Test-GzipArchive -Path $downloadPath)) {
+        Remove-Item $downloadPath -Force -ErrorAction SilentlyContinue
+        Write-Error "请检查网络后重试，或在浏览器手动下载: $downloadUrl"
         exit 1
     }
 
-    # 解压
+    # 解压(显式检查退出码，tar 失败立即终止)
     Write-Info "解压文件..."
     Set-Location $InstallDir
     tar -xzf $gethTar
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "解压失败 (tar 退出码: $LASTEXITCODE)，压缩包可能损坏"
+        Remove-Item $downloadPath -Force -ErrorAction SilentlyContinue
+        exit 1
+    }
 
     # 创建 bin 目录
     $binDir = Join-Path $InstallDir "bin"
@@ -184,13 +224,25 @@ function Download-Client {
     # 清理压缩包
     Remove-Item $downloadPath -Force
 
-    # 显示版本
+    # 校验 geth.exe 已成功生成并可执行
     $gethPath = Join-Path $binDir "geth.exe"
-    try {
-        $version = & $gethPath version 2>&1 | Select-String "Version:" | Select-Object -First 1
-        Write-Success "新客户端已下载: $version"
-    } catch {
-        Write-Success "新客户端已下载"
+    if (-not (Test-Path $gethPath)) {
+        Write-Error "解压完成但 geth.exe 未找到，压缩包内容异常"
+        exit 1
+    }
+
+    $versionOutput = & $gethPath version 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "geth.exe 无法运行 (退出码: $LASTEXITCODE):"
+        Write-Host ($versionOutput -join "`n")
+        exit 1
+    }
+
+    $versionLine = ($versionOutput | Select-String "Version:" | Select-Object -First 1)
+    if ($versionLine) {
+        Write-Success "新客户端已安装: $versionLine"
+    } else {
+        Write-Success "新客户端已安装 ($GETH_VERSION)"
     }
 }
 
@@ -217,8 +269,18 @@ function Download-Genesis {
         exit 1
     }
 
-    if (-not (Test-Path $genesisPath) -or (Get-Item $genesisPath).Length -eq 0) {
-        Write-Error "下载 genesis.json 失败"
+    if (-not (Test-Path $genesisPath) -or (Get-Item $genesisPath).Length -lt 100) {
+        Write-Error "下载 genesis.json 失败或文件过小"
+        Remove-Item $genesisPath -Force -ErrorAction SilentlyContinue
+        exit 1
+    }
+
+    # 校验是否为合法 JSON
+    try {
+        Get-Content $genesisPath -Raw | ConvertFrom-Json | Out-Null
+    } catch {
+        Write-Error "genesis.json 不是合法的 JSON，可能下载被截断: $_"
+        Remove-Item $genesisPath -Force -ErrorAction SilentlyContinue
         exit 1
     }
 

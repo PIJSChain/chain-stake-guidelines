@@ -57,6 +57,40 @@ function Write-Success {
     Write-Host $Message
 }
 
+# 校验文件是否为完整的 gzip 压缩包(防止下载被截断或重定向到 HTML 错误页)
+function Test-GzipArchive {
+    param([string]$Path, [long]$MinSize = 1048576)
+
+    if (-not (Test-Path $Path)) {
+        Write-Error-Custom "下载的文件不存在: $Path"
+        return $false
+    }
+
+    $size = (Get-Item $Path).Length
+    if ($size -lt $MinSize) {
+        Write-Error-Custom "下载文件过小($size 字节, 期望 >= $MinSize 字节)，可能被截断"
+        return $false
+    }
+
+    try {
+        $stream = [System.IO.File]::OpenRead($Path)
+        $magic = New-Object byte[] 2
+        [void]$stream.Read($magic, 0, 2)
+        $stream.Close()
+    } catch {
+        Write-Error-Custom "无法读取下载文件: $_"
+        return $false
+    }
+
+    if ($magic[0] -ne 0x1f -or $magic[1] -ne 0x8b) {
+        $hex = "{0:X2}{1:X2}" -f $magic[0], $magic[1]
+        Write-Error-Custom "下载文件不是有效的 gzip 压缩包(魔数=$hex)，可能下载被截断或被重定向到 HTML"
+        return $false
+    }
+
+    return $true
+}
+
 function Test-GethInstalled {
     try {
         $null = Get-Command geth -ErrorAction Stop
@@ -141,7 +175,16 @@ function Get-GethBinary {
 
     $downloadPath = Join-Path $INSTALL_DIR $gethTar
 
-    # 下载文件
+    # 下载文件(已存在但损坏的文件需要重新下载)
+    if (Test-Path $downloadPath) {
+        if (Test-GzipArchive -Path $downloadPath) {
+            Write-Info "发现已下载的文件，跳过下载"
+        } else {
+            Write-Warn "发现损坏或不完整的下载文件，重新下载"
+            Remove-Item $downloadPath -Force -ErrorAction SilentlyContinue
+        }
+    }
+
     if (-not (Test-Path $downloadPath)) {
         try {
             Invoke-WebRequest -Uri $gethUrl -OutFile $downloadPath -UseBasicParsing
@@ -150,14 +193,24 @@ function Get-GethBinary {
             Write-Error-Custom "下载失败: $_"
             exit 1
         }
-    } else {
-        Write-Info "发现已下载的文件，跳过下载"
+
+        # 校验下载完整性(大小 + gzip 魔数)
+        if (-not (Test-GzipArchive -Path $downloadPath)) {
+            Remove-Item $downloadPath -Force -ErrorAction SilentlyContinue
+            Write-Error-Custom "请检查网络后重试，或手动下载: $gethUrl"
+            exit 1
+        }
     }
 
     # 解压（需要 tar 命令，Windows 10+ 自带）
     Write-Info "解压文件..."
     Set-Location $INSTALL_DIR
     tar -xzf $gethTar
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error-Custom "解压失败 (tar 退出码: $LASTEXITCODE)，压缩包可能损坏"
+        Remove-Item $downloadPath -Force -ErrorAction SilentlyContinue
+        exit 1
+    }
 
     # 创建 bin 目录
     $binDir = Join-Path $INSTALL_DIR "bin"
@@ -191,15 +244,19 @@ function Get-GethBinary {
 
     # 验证安装
     $gethPath = Join-Path $binDir "geth.exe"
-    if (Test-Path $gethPath) {
-        & $gethPath version
-        Write-Success "节点程序安装完成"
-        Write-Info "二进制文件位置: $binDir"
-        Write-Warn "请重新打开 PowerShell 窗口使环境变量生效"
-    } else {
-        Write-Error-Custom "geth 安装失败"
+    if (-not (Test-Path $gethPath)) {
+        Write-Error-Custom "geth 安装失败：未找到 $gethPath"
         exit 1
     }
+
+    & $gethPath version
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error-Custom "geth.exe 无法运行 (退出码: $LASTEXITCODE)，二进制文件可能损坏"
+        exit 1
+    }
+    Write-Success "节点程序安装完成"
+    Write-Info "二进制文件位置: $binDir"
+    Write-Warn "请重新打开 PowerShell 窗口使环境变量生效"
 }
 
 function Get-GenesisConfig {
@@ -241,6 +298,21 @@ function Get-GenesisConfig {
             Write-Error-Custom "genesis.json 文件不存在"
             exit 1
         }
+    }
+
+    # 校验 genesis.json 完整性
+    if ((Get-Item $genesisPath).Length -lt 100) {
+        Write-Error-Custom "genesis.json 文件过小，可能下载被截断"
+        Remove-Item $genesisPath -Force -ErrorAction SilentlyContinue
+        exit 1
+    }
+
+    try {
+        Get-Content $genesisPath -Raw | ConvertFrom-Json | Out-Null
+    } catch {
+        Write-Error-Custom "genesis.json 不是合法的 JSON，可能下载被截断: $_"
+        Remove-Item $genesisPath -Force -ErrorAction SilentlyContinue
+        exit 1
     }
 
     Write-Success "创世配置就绪"

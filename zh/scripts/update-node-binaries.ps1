@@ -52,6 +52,40 @@ function Write-Success {
     Write-Host "[完成] $Message" -ForegroundColor Green
 }
 
+# 校验文件是否为完整的 gzip 压缩包(防止下载被截断或重定向到 HTML 错误页)
+function Test-GzipArchive {
+    param([string]$Path, [long]$MinSize = 1048576)
+
+    if (-not (Test-Path $Path)) {
+        Write-Error-Custom "下载的文件不存在: $Path"
+        return $false
+    }
+
+    $size = (Get-Item $Path).Length
+    if ($size -lt $MinSize) {
+        Write-Error-Custom "下载文件过小($size 字节, 期望 >= $MinSize 字节)，可能被截断"
+        return $false
+    }
+
+    try {
+        $stream = [System.IO.File]::OpenRead($Path)
+        $magic = New-Object byte[] 2
+        [void]$stream.Read($magic, 0, 2)
+        $stream.Close()
+    } catch {
+        Write-Error-Custom "无法读取下载文件: $_"
+        return $false
+    }
+
+    if ($magic[0] -ne 0x1f -or $magic[1] -ne 0x8b) {
+        $hex = "{0:X2}{1:X2}" -f $magic[0], $magic[1]
+        Write-Error-Custom "下载文件不是有效的 gzip 压缩包(魔数=$hex)，可能下载被截断或被重定向到 HTML"
+        return $false
+    }
+
+    return $true
+}
+
 # ==================== 核心流程 ====================
 
 function Test-Dependencies {
@@ -146,11 +180,15 @@ function Install-LatestBinaries {
         Write-Info "下载地址: $downloadUrl"
         Invoke-WebRequest -Uri $downloadUrl -OutFile $archivePath -UseBasicParsing
 
-        if (-not (Test-Path $archivePath) -or (Get-Item $archivePath).Length -eq 0) {
-            throw "下载失败或压缩包为空"
+        # 校验下载完整性(大小 + gzip 魔数)
+        if (-not (Test-GzipArchive -Path $archivePath)) {
+            throw "下载文件校验失败，请检查网络后重试，或手动下载: $downloadUrl"
         }
 
         tar -xzf $archivePath -C $tempRoot
+        if ($LASTEXITCODE -ne 0) {
+            throw "解压失败 (tar 退出码: $LASTEXITCODE)，压缩包可能损坏"
+        }
 
         $installed = $false
         foreach ($binary in $BinaryNames) {
@@ -175,19 +213,26 @@ function Install-LatestBinaries {
     }
 
     $gethPath = Join-Path $binDir "geth.exe"
-    if (Test-Path $gethPath) {
-        try {
-            $versionLine = (& $gethPath version 2>&1 | Select-String "Version:" | Select-Object -First 1).ToString().Trim()
-            if ([string]::IsNullOrWhiteSpace($versionLine)) {
-                Write-Success "二进制更新完成，Release 标签: $($script:LatestVersion)"
-            } elseif ($versionLine -match [regex]::Escape($script:LatestVersion) -or $versionLine -match [regex]::Escape($script:LatestVersion.TrimStart('v'))) {
-                Write-Success "二进制更新完成: $versionLine"
-            } else {
-                Write-Success "二进制更新完成，Release 标签: $($script:LatestVersion)，$versionLine"
-            }
-        } catch {
-            Write-Success "二进制更新完成，Release 标签: $($script:LatestVersion)"
-        }
+    if (-not (Test-Path $gethPath)) {
+        Write-Error-Custom "解压完成但 geth.exe 未找到，压缩包内容异常"
+        exit 1
+    }
+
+    $versionOutput = & $gethPath version 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error-Custom "geth.exe 无法运行 (退出码: $LASTEXITCODE):"
+        Write-Host ($versionOutput -join "`n")
+        exit 1
+    }
+
+    $matchedVersion = $versionOutput | Select-String "Version:" | Select-Object -First 1
+    $versionLine = if ($matchedVersion) { $matchedVersion.ToString().Trim() } else { "" }
+    if ([string]::IsNullOrWhiteSpace($versionLine)) {
+        Write-Success "二进制更新完成，Release 标签: $($script:LatestVersion)"
+    } elseif ($versionLine -match [regex]::Escape($script:LatestVersion) -or $versionLine -match [regex]::Escape($script:LatestVersion.TrimStart('v'))) {
+        Write-Success "二进制更新完成: $versionLine"
+    } else {
+        Write-Success "二进制更新完成，Release 标签: $($script:LatestVersion)，$versionLine"
     }
 }
 

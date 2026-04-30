@@ -51,6 +51,34 @@ print_success() {
     echo -e "${GREEN}[完成]${NC} $1"
 }
 
+# 校验文件是否为完整的 gzip 压缩包(防止下载被截断或重定向到 HTML)
+# 用法: verify_gzip_archive <文件路径> [最小字节数]
+verify_gzip_archive() {
+    local path="$1"
+    local min_size="${2:-1048576}"
+
+    if [ ! -f "$path" ]; then
+        print_error "下载的文件不存在: $path"
+        return 1
+    fi
+
+    local size
+    size=$(wc -c < "$path" 2>/dev/null | tr -d ' ')
+    if [ -z "$size" ] || [ "$size" -lt "$min_size" ]; then
+        print_error "下载文件过小(${size:-0} 字节, 期望 >= ${min_size} 字节)，可能被截断"
+        return 1
+    fi
+
+    local magic
+    magic=$(head -c 2 "$path" 2>/dev/null | od -An -tx1 2>/dev/null | tr -d ' \n')
+    if [ "$magic" != "1f8b" ]; then
+        print_error "下载文件不是有效的 gzip 压缩包(魔数=${magic:-unknown})，可能下载被截断或被重定向到 HTML"
+        return 1
+    fi
+
+    return 0
+}
+
 check_command() {
     command -v "$1" >/dev/null 2>&1
 }
@@ -180,12 +208,16 @@ install_latest_binaries() {
     print_info "下载地址: $download_url"
     download_file "$download_url" "$tmp_dir/$archive_name"
 
-    if [ ! -s "$tmp_dir/$archive_name" ]; then
-        print_error "下载失败或文件为空"
+    # 校验下载完整性(大小 + gzip 魔数)
+    if ! verify_gzip_archive "$tmp_dir/$archive_name"; then
+        print_error "请检查网络后重试，或手动下载: $download_url"
         exit 1
     fi
 
-    tar -xzf "$tmp_dir/$archive_name" -C "$tmp_dir"
+    if ! tar -xzf "$tmp_dir/$archive_name" -C "$tmp_dir"; then
+        print_error "解压失败，压缩包可能损坏"
+        exit 1
+    fi
     mkdir -p "$INSTALL_DIR/bin"
 
     for binary in geth bootnode abigen clef evm rlpdump devp2p ethkey p2psim; do
@@ -202,7 +234,18 @@ install_latest_binaries() {
         exit 1
     fi
 
-    CURRENT_VERSION=$($INSTALL_DIR/bin/geth version 2>/dev/null | awk '/Version:/ {print $2; exit}')
+    # 校验 geth 可执行
+    if [ ! -x "$INSTALL_DIR/bin/geth" ]; then
+        print_error "解压完成但 geth 未找到，压缩包内容异常"
+        exit 1
+    fi
+    if ! "$INSTALL_DIR/bin/geth" version >/dev/null 2>&1; then
+        print_error "geth 无法运行 — 二进制文件可能损坏"
+        "$INSTALL_DIR/bin/geth" version || true
+        exit 1
+    fi
+
+    CURRENT_VERSION=$("$INSTALL_DIR/bin/geth" version 2>/dev/null | awk '/Version:/ {print $2; exit}')
     CURRENT_VERSION=${CURRENT_VERSION:-}
 
     if [ -n "$CURRENT_VERSION" ] && [ "$CURRENT_VERSION" != "${LATEST_VERSION#v}" ] && [ "$CURRENT_VERSION" != "$LATEST_VERSION" ]; then

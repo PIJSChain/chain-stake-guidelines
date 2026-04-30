@@ -55,6 +55,35 @@ print_success() {
     echo -e "${GREEN}[完成]${NC} $1"
 }
 
+# 校验文件是否为完整的 gzip 压缩包(防止下载被截断或重定向到 HTML)
+# 用法: verify_gzip_archive <文件路径> [最小字节数]
+verify_gzip_archive() {
+    local path="$1"
+    local min_size="${2:-1048576}"
+
+    if [ ! -f "$path" ]; then
+        print_error "下载的文件不存在: $path"
+        return 1
+    fi
+
+    local size
+    size=$(wc -c < "$path" 2>/dev/null | tr -d ' ')
+    if [ -z "$size" ] || [ "$size" -lt "$min_size" ]; then
+        print_error "下载文件过小(${size:-0} 字节, 期望 >= ${min_size} 字节)，可能被截断"
+        return 1
+    fi
+
+    # 校验 gzip 魔数 (1f 8b)
+    local magic
+    magic=$(head -c 2 "$path" 2>/dev/null | od -An -tx1 2>/dev/null | tr -d ' \n')
+    if [ "$magic" != "1f8b" ]; then
+        print_error "下载文件不是有效的 gzip 压缩包(魔数=${magic:-unknown})，可能下载被截断或被重定向到 HTML"
+        return 1
+    fi
+
+    return 0
+}
+
 # 检测操作系统和架构
 detect_platform() {
     OS=$(uname -s | tr '[:upper:]' '[:lower:]')
@@ -189,24 +218,20 @@ download_client() {
         exit 1
     fi
 
-    # 验证下载
-    if [ ! -f "$geth_tar" ] || [ ! -s "$geth_tar" ]; then
-        print_error "下载失败或文件为空"
+    # 校验下载完整性(大小 + gzip 魔数)
+    if ! verify_gzip_archive "$geth_tar"; then
+        rm -f "$geth_tar"
+        print_error "请检查网络后重试，或手动下载: $download_url"
         exit 1
     fi
 
-    # 验证是否是有效的 gzip 压缩包
-    local file_type=$(file "$geth_tar" 2>/dev/null)
-    if ! echo "$file_type" | grep -qE "gzip|compressed"; then
-        print_error "下载的文件不是有效的压缩包"
-        print_error "文件类型: $file_type"
+    # 解压(显式检查 tar 退出码，失败立即终止)
+    print_info "解压文件..."
+    if ! tar -xzf "$geth_tar"; then
+        print_error "解压失败，压缩包可能损坏"
         rm -f "$geth_tar"
         exit 1
     fi
-
-    # 解压
-    print_info "解压文件..."
-    tar -xzf "$geth_tar"
 
     # 确保 bin 目录存在
     mkdir -p "$bin_dir"
@@ -221,6 +246,19 @@ download_client() {
 
     # 清理压缩包
     rm -f "$geth_tar"
+
+    # 校验 geth 已成功生成
+    if [ ! -x "$bin_dir/geth" ]; then
+        print_error "解压完成但 $bin_dir/geth 未找到，压缩包内容异常"
+        exit 1
+    fi
+
+    # 校验 geth 可执行
+    if ! "$bin_dir/geth" version >/dev/null 2>&1; then
+        print_error "geth 无法运行 — 二进制文件可能损坏"
+        "$bin_dir/geth" version || true
+        exit 1
+    fi
 
     # 更新 /usr/local/bin 中的二进制文件
     if [ -f "/usr/local/bin/geth" ]; then
@@ -259,14 +297,32 @@ download_genesis() {
     print_info "下载地址: $GENESIS_URL"
 
     if command -v curl &> /dev/null; then
-        curl -L -o genesis.json "$GENESIS_URL" --progress-bar
+        curl -fL -o genesis.json "$GENESIS_URL" --progress-bar || true
     elif command -v wget &> /dev/null; then
-        wget -O genesis.json "$GENESIS_URL" --show-progress
+        wget -O genesis.json "$GENESIS_URL" --show-progress || true
     fi
 
-    if [ ! -f "genesis.json" ] || [ ! -s "genesis.json" ]; then
-        print_error "下载 genesis.json 失败"
+    local genesis_size
+    genesis_size=$(wc -c < genesis.json 2>/dev/null | tr -d ' ' || echo 0)
+    if [ ! -f "genesis.json" ] || [ "${genesis_size:-0}" -lt 100 ]; then
+        print_error "下载 genesis.json 失败或文件过小(${genesis_size:-0} 字节)"
+        rm -f genesis.json
         exit 1
+    fi
+
+    # 校验是否为合法 JSON
+    if command -v python3 &> /dev/null; then
+        if ! python3 -c "import json,sys; json.load(open('genesis.json'))" 2>/dev/null; then
+            print_error "genesis.json 不是合法的 JSON，可能下载被截断"
+            rm -f genesis.json
+            exit 1
+        fi
+    elif command -v python &> /dev/null; then
+        if ! python -c "import json,sys; json.load(open('genesis.json'))" 2>/dev/null; then
+            print_error "genesis.json 不是合法的 JSON，可能下载被截断"
+            rm -f genesis.json
+            exit 1
+        fi
     fi
 
     print_success "创世配置已下载"

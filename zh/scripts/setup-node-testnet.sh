@@ -58,6 +58,34 @@ print_success() {
     echo -e "${GREEN}[成功]${NC} $1"
 }
 
+# 校验文件是否为完整的 gzip 压缩包(防止下载被截断或重定向到 HTML)
+# 用法: verify_gzip_archive <文件路径> [最小字节数]
+verify_gzip_archive() {
+    local path="$1"
+    local min_size="${2:-1048576}"
+
+    if [ ! -f "$path" ]; then
+        print_error "下载的文件不存在: $path"
+        return 1
+    fi
+
+    local size
+    size=$(wc -c < "$path" 2>/dev/null | tr -d ' ')
+    if [ -z "$size" ] || [ "$size" -lt "$min_size" ]; then
+        print_error "下载文件过小(${size:-0} 字节, 期望 >= ${min_size} 字节)，可能被截断"
+        return 1
+    fi
+
+    local magic
+    magic=$(head -c 2 "$path" 2>/dev/null | od -An -tx1 2>/dev/null | tr -d ' \n')
+    if [ "$magic" != "1f8b" ]; then
+        print_error "下载文件不是有效的 gzip 压缩包(魔数=${magic:-unknown})，可能下载被截断或被重定向到 HTML"
+        return 1
+    fi
+
+    return 0
+}
+
 # 检测操作系统和架构
 detect_platform() {
     OS=$(uname -s | tr '[:upper:]' '[:lower:]')
@@ -194,17 +222,35 @@ download_geth() {
     print_info "正在下载 geth ($PLATFORM)..."
     print_info "下载地址: $geth_url"
 
-    # 下载文件
+    # 下载文件(已存在但损坏的需要重新下载)
     cd "$INSTALL_DIR"
     if [ -f "$geth_tar" ]; then
-        print_info "发现已下载的文件，跳过下载"
-    else
+        if verify_gzip_archive "$geth_tar" >/dev/null 2>&1; then
+            print_info "发现已下载的文件，跳过下载"
+        else
+            print_warn "发现损坏或不完整的下载文件，重新下载"
+            rm -f "$geth_tar"
+        fi
+    fi
+
+    if [ ! -f "$geth_tar" ]; then
         download_file "$geth_url" "$geth_tar"
+
+        # 校验下载完整性(大小 + gzip 魔数)
+        if ! verify_gzip_archive "$geth_tar"; then
+            rm -f "$geth_tar"
+            print_error "请检查网络后重试，或手动下载: $geth_url"
+            exit 1
+        fi
     fi
 
     # 解压
     print_info "解压文件..."
-    tar -xzf "$geth_tar"
+    if ! tar -xzf "$geth_tar"; then
+        print_error "解压失败，压缩包可能损坏"
+        rm -f "$geth_tar"
+        exit 1
+    fi
 
     # 创建 bin 目录并移动二进制文件
     mkdir -p "$INSTALL_DIR/bin"
@@ -267,14 +313,16 @@ download_geth() {
     fi
 
     # 验证安装
-    if [ -f "$INSTALL_DIR/bin/geth" ]; then
-        "$INSTALL_DIR/bin/geth" version
-        print_success "节点程序安装完成"
-        print_info "二进制文件位置: $INSTALL_DIR/bin/"
-    else
-        print_error "geth 安装失败"
+    if [ ! -x "$INSTALL_DIR/bin/geth" ]; then
+        print_error "geth 安装失败：未找到 $INSTALL_DIR/bin/geth"
         exit 1
     fi
+    if ! "$INSTALL_DIR/bin/geth" version; then
+        print_error "geth 无法运行 — 二进制文件可能损坏"
+        exit 1
+    fi
+    print_success "节点程序安装完成"
+    print_info "二进制文件位置: $INSTALL_DIR/bin/"
 }
 
 # 下载 genesis.json
@@ -313,6 +361,29 @@ download_genesis() {
 
         if [ ! -f "genesis.json" ]; then
             print_error "genesis.json 文件不存在"
+            exit 1
+        fi
+    fi
+
+    # 校验 genesis.json 完整性
+    local genesis_size
+    genesis_size=$(wc -c < genesis.json 2>/dev/null | tr -d ' ' || echo 0)
+    if [ "${genesis_size:-0}" -lt 100 ]; then
+        print_error "genesis.json 文件过小(${genesis_size:-0} 字节)，可能下载被截断"
+        rm -f genesis.json
+        exit 1
+    fi
+
+    if command -v python3 &> /dev/null; then
+        if ! python3 -c "import json; json.load(open('genesis.json'))" 2>/dev/null; then
+            print_error "genesis.json 不是合法的 JSON，可能下载被截断"
+            rm -f genesis.json
+            exit 1
+        fi
+    elif command -v python &> /dev/null; then
+        if ! python -c "import json; json.load(open('genesis.json'))" 2>/dev/null; then
+            print_error "genesis.json 不是合法的 JSON，可能下载被截断"
+            rm -f genesis.json
             exit 1
         fi
     fi

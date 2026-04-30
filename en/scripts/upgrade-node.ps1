@@ -52,6 +52,40 @@ function Write-Success {
     Write-Host "[OK] $Message" -ForegroundColor Green
 }
 
+# Validate that a file is a complete gzip archive (guards against truncated downloads or HTML error pages)
+function Test-GzipArchive {
+    param([string]$Path, [long]$MinSize = 1048576)
+
+    if (-not (Test-Path $Path)) {
+        Write-Error "Downloaded file not found: $Path"
+        return $false
+    }
+
+    $size = (Get-Item $Path).Length
+    if ($size -lt $MinSize) {
+        Write-Error "Downloaded file too small ($size bytes, expected >= $MinSize), likely truncated or download failed"
+        return $false
+    }
+
+    try {
+        $stream = [System.IO.File]::OpenRead($Path)
+        $magic = New-Object byte[] 2
+        [void]$stream.Read($magic, 0, 2)
+        $stream.Close()
+    } catch {
+        Write-Error "Cannot read downloaded file: $_"
+        return $false
+    }
+
+    if ($magic[0] -ne 0x1f -or $magic[1] -ne 0x8b) {
+        $hex = "{0:X2}{1:X2}" -f $magic[0], $magic[1]
+        Write-Error "Not a valid gzip archive (magic=$hex), download may have been truncated or redirected to an HTML error page"
+        return $false
+    }
+
+    return $true
+}
+
 # Check if node is running
 function Test-NodeRunning {
     param([string]$InstallDir)
@@ -151,16 +185,22 @@ function Download-Client {
         exit 1
     }
 
-    # Verify download
-    if (-not (Test-Path $downloadPath) -or (Get-Item $downloadPath).Length -eq 0) {
-        Write-Error "Download failed or file is empty"
+    # Verify download integrity (size + gzip magic)
+    if (-not (Test-GzipArchive -Path $downloadPath)) {
+        Remove-Item $downloadPath -Force -ErrorAction SilentlyContinue
+        Write-Error "Please check your network and retry, or download manually in a browser: $downloadUrl"
         exit 1
     }
 
-    # Extract
+    # Extract (check exit code explicitly; abort immediately on tar failure)
     Write-Info "Extracting files..."
     Set-Location $InstallDir
     tar -xzf $gethTar
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Extraction failed (tar exit code: $LASTEXITCODE), archive may be corrupted"
+        Remove-Item $downloadPath -Force -ErrorAction SilentlyContinue
+        exit 1
+    }
 
     # Create bin directory
     $binDir = Join-Path $InstallDir "bin"
@@ -184,13 +224,25 @@ function Download-Client {
     # Clean up archive
     Remove-Item $downloadPath -Force
 
-    # Show version
+    # Verify geth.exe was produced and is executable
     $gethPath = Join-Path $binDir "geth.exe"
-    try {
-        $version = & $gethPath version 2>&1 | Select-String "Version:" | Select-Object -First 1
-        Write-Success "New client downloaded: $version"
-    } catch {
-        Write-Success "New client downloaded"
+    if (-not (Test-Path $gethPath)) {
+        Write-Error "Extraction completed but geth.exe was not found; archive contents are abnormal"
+        exit 1
+    }
+
+    $versionOutput = & $gethPath version 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "geth.exe failed to run (exit code: $LASTEXITCODE):"
+        Write-Host ($versionOutput -join "`n")
+        exit 1
+    }
+
+    $versionLine = ($versionOutput | Select-String "Version:" | Select-Object -First 1)
+    if ($versionLine) {
+        Write-Success "New client installed: $versionLine"
+    } else {
+        Write-Success "New client installed ($GETH_VERSION)"
     }
 }
 
@@ -217,8 +269,18 @@ function Download-Genesis {
         exit 1
     }
 
-    if (-not (Test-Path $genesisPath) -or (Get-Item $genesisPath).Length -eq 0) {
-        Write-Error "Failed to download genesis.json"
+    if (-not (Test-Path $genesisPath) -or (Get-Item $genesisPath).Length -lt 100) {
+        Write-Error "Failed to download genesis.json or file is too small"
+        Remove-Item $genesisPath -Force -ErrorAction SilentlyContinue
+        exit 1
+    }
+
+    # Validate that the file is well-formed JSON
+    try {
+        Get-Content $genesisPath -Raw | ConvertFrom-Json | Out-Null
+    } catch {
+        Write-Error "genesis.json is not valid JSON, download may have been truncated: $_"
+        Remove-Item $genesisPath -Force -ErrorAction SilentlyContinue
         exit 1
     }
 
