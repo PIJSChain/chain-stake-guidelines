@@ -1,15 +1,8 @@
 # Consensus Node Deployment and Staking Guide (MainNet)
 
-> ⚠️ **This document is a MainNet placeholder. Some parameters are not yet finalized — resolve all TODO items before public release.**
+> **Network**: PIJS Chain MainNet · **Chain ID**: `31419` · **Client**: `v1.26.0-mainnet`
 >
-> The following values still need to be replaced with real MainNet parameters before launch (grep `TODO(MAINNET)` to locate them):
->
-> - **Chain ID / Network ID**: `20250521` shown in this doc is the TestNet value; MainNet `--chainid` / `--networkid` is TBD
-> - **Bootnode enode list**: the three enodes listed are TestNet nodes; MainNet bootnodes are TBD
-> - **Staking amounts and lock-up period**: TestNet `2,000 PIJS` / 7 days are examples; MainNet figures will follow official announcement
-> - **Setup script path**: links currently reference `setup-node-testnet.sh` / `.ps1`; MainNet scripts TBD (suggested name: `setup-node-mainnet.*`)
->
-> ✅ Resolved: binary / genesis / bootnodes.txt download URLs now point to the `v1.26.0-mainnet` release on `PIJSChain/pijs`.
+> Staking amounts and lock-up period follow the official announcement; numbers shown in this document are illustrative.
 
 This guide covers the complete process of deploying a PIJS consensus node, including staking, claiming, and management operations.
 
@@ -386,17 +379,17 @@ Invoke-WebRequest -Uri "https://github.com/PIJSChain/pijs/releases/download/v1.2
 
 #### 1.3 Get Bootstrap Node Addresses
 
-Bootstrap nodes are used to connect to the PIJS network:
+Bootstrap nodes are used to connect to the PIJS MainNet. `bootnodes.txt` is maintained by the official release; one enode per line:
 
 ```bash
-# Download bootstrap node list
+# Download the MainNet bootstrap node list
 curl -LO https://github.com/PIJSChain/pijs/releases/download/v1.26.0-mainnet/bootnodes.txt
 
-# Or use the following addresses directly:
-enode://6f05512feacca0b15cd94ed2165e8f96b16cf346cb16ba7810a37bea05851b3887ee8ef3ee790090cb3352f37a710bcd035d6b0bfd8961287751532c2b0717fb@54.169.152.20:30303
-enode://2d2370d19648032a525287645a38b6f1a87199e282cf9a99ebc25f3387e79780695b6c517bd8180be4e9b6b93c39502185960203c35d1ea067924f40e0fd50f1@104.16.132.181:30303
-enode://3fb2f819279b92f256718081af1c26bb94c4056f9938f8f1897666f1612ad478e2d84fc56428d20f99201d958951bde4c3f732d27c52d0c5138d9174e744e115@52.76.128.119:30303
+# Inspect the downloaded entries
+cat bootnodes.txt
 ```
+
+> The start command reads this file via shell substitution — you don't need to paste enodes by hand.
 
 ---
 
@@ -525,14 +518,12 @@ Record your external IP, e.g., `203.0.113.100`
 
 > **Tip**: If you used the automated deployment script `setup-node-testnet.sh` (or `setup-node-testnet.ps1` for Windows), the start script is already generated in the installation directory and can be run directly.
 
-<!-- TODO(MAINNET): the following start commands use --networkid 20250521 and TestNet --bootnodes. Replace with the MainNet chainID and the official MainNet bootnode enode list. The setup script names should also be renamed to setup-node-mainnet.* once available. -->
-
 **Linux / macOS:**
 
 ```bash
 geth \
   --datadir ./data \
-  --networkid 20250521 \
+  --networkid 31419 \
   --syncmode "full" \
   --gcmode "archive" \
   --cache 4096 \
@@ -553,7 +544,7 @@ geth \
   --hybrid.blskey ./bls-keystore.json \
   --hybrid.blspassword ./password.txt \
   --nat "any" \
-  --bootnodes "enode://6f05512feacca0b15cd94ed2165e8f96b16cf346cb16ba7810a37bea05851b3887ee8ef3ee790090cb3352f37a710bcd035d6b0bfd8961287751532c2b0717fb@54.169.152.20:30303,enode://2d2370d19648032a525287645a38b6f1a87199e282cf9a99ebc25f3387e79780695b6c517bd8180be4e9b6b93c39502185960203c35d1ea067924f40e0fd50f1@104.16.132.181:30303,enode://3fb2f819279b92f256718081af1c26bb94c4056f9938f8f1897666f1612ad478e2d84fc56428d20f99201d958951bde4c3f732d27c52d0c5138d9174e744e115@52.76.128.119:30303" \
+  --bootnodes "$(tr '\n' ',' < bootnodes.txt | sed 's/,$//')" \
   --log.file ./logs/geth.log \
   --log.maxsize 100 \
   --log.maxbackups 10 \
@@ -565,7 +556,7 @@ geth \
 ```powershell
 geth `
   --datadir .\data `
-  --networkid 20250521 `
+  --networkid 31419 `
   --syncmode "full" `
   --gcmode "archive" `
   --cache 4096 `
@@ -586,7 +577,7 @@ geth `
   --hybrid.blskey .\bls-keystore.json `
   --hybrid.blspassword .\password.txt `
   --nat "any" `
-  --bootnodes "enode://6f05512feacca0b15cd94ed2165e8f96b16cf346cb16ba7810a37bea05851b3887ee8ef3ee790090cb3352f37a710bcd035d6b0bfd8961287751532c2b0717fb@54.169.152.20:30303,enode://2d2370d19648032a525287645a38b6f1a87199e282cf9a99ebc25f3387e79780695b6c517bd8180be4e9b6b93c39502185960203c35d1ea067924f40e0fd50f1@104.16.132.181:30303,enode://3fb2f819279b92f256718081af1c26bb94c4056f9938f8f1897666f1612ad478e2d84fc56428d20f99201d958951bde4c3f732d27c52d0c5138d9174e744e115@52.76.128.119:30303" `
+  --bootnodes "$((Get-Content bootnodes.txt) -join ',')" `
   --log.file .\logs\geth.log `
   --log.maxsize 100 `
   --log.maxbackups 10 `
@@ -693,8 +684,6 @@ After node is started and synced, complete staking on Web platform to start earn
 
 Execute on node server:
 
-<!-- TODO(MAINNET): every --chainid 20250521 in this section and the rest of the document is the TestNet chainID. Replace globally with the MainNet chainID once announced. -->
-
 **Linux / macOS:**
 
 ```bash
@@ -704,7 +693,7 @@ cd ~/pijs-node
 # Caller address is also used as withdrawal address (recommended for regular users)
 geth hybrid bls deposit \
   --keyfile ./keys/bls-keystore.json \
-  --chainid 20250521 \
+  --chainid 31419 \
   --address 0xYourWalletAddress \
   --amount 10000 \
   --output deposit_data.json
@@ -713,7 +702,7 @@ geth hybrid bls deposit \
 # Caller address and withdrawal address are separate (for node operators managing delegated stakes)
 geth hybrid bls deposit \
   --keyfile ./keys/bls-keystore.json \
-  --chainid 20250521 \
+  --chainid 31419 \
   --address 0xCallerAddress \
   --withdrawal 0xOperatorWithdrawalAddress \
   --amount 10000 \
@@ -729,7 +718,7 @@ cd ~\pijs-node
 # Caller address is also used as withdrawal address (recommended for regular users)
 geth hybrid bls deposit `
   --keyfile .\keys\bls-keystore.json `
-  --chainid 20250521 `
+  --chainid 31419 `
   --address 0xYourWalletAddress `
   --amount 10000 `
   --output deposit_data.json
@@ -738,7 +727,7 @@ geth hybrid bls deposit `
 # Caller address and withdrawal address are separate (for node operators managing delegated stakes)
 geth hybrid bls deposit `
   --keyfile .\keys\bls-keystore.json `
-  --chainid 20250521 `
+  --chainid 31419 `
   --address 0xCallerAddress `
   --withdrawal 0xOperatorWithdrawalAddress `
   --amount 10000 `
@@ -750,7 +739,7 @@ geth hybrid bls deposit `
 | Parameter | Description |
 |-----------|-------------|
 | `--keyfile` | BLS key file path |
-| `--chainid` | Chain ID (Testnet: 20250521) |
+| `--chainid` | Chain ID (Testnet: 31419) |
 | `--address` | Caller wallet address (for paying stake) |
 | `--withdrawal` | Withdrawal address (optional, defaults to same as address) |
 | `--amount` | Stake amount (PIJS) |
@@ -941,7 +930,7 @@ cd ~/pijs-node
 # Each stake requires new signature file
 geth hybrid bls deposit \
   --keyfile ./keys/bls-keystore.json \
-  --chainid 20250521 \
+  --chainid 31419 \
   --address 0xYourWalletAddress \
   --amount 5000 \
   --output deposit_additional.json
@@ -955,7 +944,7 @@ cd ~\pijs-node
 # Each stake requires new signature file
 geth hybrid bls deposit `
   --keyfile .\keys\bls-keystore.json `
-  --chainid 20250521 `
+  --chainid 31419 `
   --address 0xYourWalletAddress `
   --amount 5000 `
   --output deposit_additional.json
@@ -1021,7 +1010,7 @@ cd ~/pijs-node
 
 geth hybrid bls redeem \
   --keyfile ./keys/bls-keystore.json \
-  --chainid 20250521 \
+  --chainid 31419 \
   --orderid 1 \
   --withdrawal 0xYourWithdrawalAddress \
   --recipient 0xYourRecipientAddress \
@@ -1035,7 +1024,7 @@ cd ~\pijs-node
 
 geth hybrid bls redeem `
   --keyfile .\keys\bls-keystore.json `
-  --chainid 20250521 `
+  --chainid 31419 `
   --orderid 1 `
   --withdrawal 0xYourWithdrawalAddress `
   --recipient 0xYourRecipientAddress `
@@ -1178,7 +1167,7 @@ geth hybrid bls import --privkey 0x... --save ./bls-keystore.json
 # Staking signature (Standard Mode)
 geth hybrid bls deposit \
   --keyfile ./keys/bls-keystore.json \
-  --chainid 20250521 \
+  --chainid 31419 \
   --address 0x... \
   --amount 10000 \
   --output deposit_data.json
@@ -1186,7 +1175,7 @@ geth hybrid bls deposit \
 # Staking signature (Operator Mode - with separate withdrawal address)
 geth hybrid bls deposit \
   --keyfile ./keys/bls-keystore.json \
-  --chainid 20250521 \
+  --chainid 31419 \
   --address 0x... \
   --withdrawal 0x... \
   --amount 10000 \
@@ -1201,7 +1190,7 @@ geth hybrid bls sign \
 # Redemption signature
 geth hybrid bls redeem \
   --keyfile ./keys/bls-keystore.json \
-  --chainid 20250521 \
+  --chainid 31419 \
   --orderid 1 \
   --withdrawal 0x... \
   --recipient 0x... \
@@ -1214,7 +1203,7 @@ geth hybrid bls redeem \
 # Staking signature (Standard Mode)
 geth hybrid bls deposit `
   --keyfile .\keys\bls-keystore.json `
-  --chainid 20250521 `
+  --chainid 31419 `
   --address 0x... `
   --amount 10000 `
   --output deposit_data.json
@@ -1222,7 +1211,7 @@ geth hybrid bls deposit `
 # Staking signature (Operator Mode - with separate withdrawal address)
 geth hybrid bls deposit `
   --keyfile .\keys\bls-keystore.json `
-  --chainid 20250521 `
+  --chainid 31419 `
   --address 0x... `
   --withdrawal 0x... `
   --amount 10000 `
@@ -1237,7 +1226,7 @@ geth hybrid bls sign `
 # Redemption signature
 geth hybrid bls redeem `
   --keyfile .\keys\bls-keystore.json `
-  --chainid 20250521 `
+  --chainid 31419 `
   --orderid 1 `
   --withdrawal 0x... `
   --recipient 0x... `

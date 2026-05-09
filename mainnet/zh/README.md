@@ -1,15 +1,8 @@
 # 共识节点部署与质押操作手册（主网 / MainNet）
 
-> ⚠️ **本文档为 MainNet 占位副本，部分参数尚未最终确认，请在替换完所有 TODO 项后再公开发布。**
+> **网络**：PIJS Chain MainNet · **Chain ID**：`31419` · **客户端版本**：`v1.26.0-mainnet`
 >
-> 以下值仍需在主网正式上线前替换为主网真实参数（搜索 `TODO(MAINNET)` 可定位）：
->
-> - **链 ID / 网络 ID**：当前文中 `20250521` 为测试网值，主网 `--chainid` / `--networkid` 待定
-> - **引导节点 enode 列表**：当前列出的三个 enode 为测试网节点，主网 bootnodes 待提供
-> - **质押金额与期限**：测试网 2,000 PIJS / 7 天为示例，主网最终参数以官方公告为准
-> - **setup 脚本路径**：当前文中链接到 `setup-node-testnet.sh` / `.ps1`，主网脚本待定（建议命名 `setup-node-mainnet.*`）
->
-> ✅ 已确定：节点二进制 / 创世配置 / bootnodes.txt 下载地址已迁移到 `PIJSChain/pijs` 的 `v1.26.0-mainnet` release。
+> 质押金额与锁定期以官方公告为准；本文中示例数值仅供参考。
 
 本手册将指导您完成共识节点的部署、质押、认领和管理全过程。
 
@@ -386,17 +379,17 @@ Invoke-WebRequest -Uri "https://github.com/PIJSChain/pijs/releases/download/v1.2
 
 #### 1.3 获取引导节点地址
 
-引导节点用于连接到 PIJS 网络：
+引导节点用于连接到 PIJS 主网。`bootnodes.txt` 由官方维护，每行一个 enode：
 
 ```bash
-# 下载引导节点列表
+# 下载主网引导节点列表
 curl -LO https://github.com/PIJSChain/pijs/releases/download/v1.26.0-mainnet/bootnodes.txt
 
-# 或直接使用以下地址：
-enode://6f05512feacca0b15cd94ed2165e8f96b16cf346cb16ba7810a37bea05851b3887ee8ef3ee790090cb3352f37a710bcd035d6b0bfd8961287751532c2b0717fb@54.169.152.20:30303
-enode://2d2370d19648032a525287645a38b6f1a87199e282cf9a99ebc25f3387e79780695b6c517bd8180be4e9b6b93c39502185960203c35d1ea067924f40e0fd50f1@104.16.132.181:30303
-enode://3fb2f819279b92f256718081af1c26bb94c4056f9938f8f1897666f1612ad478e2d84fc56428d20f99201d958951bde4c3f732d27c52d0c5138d9174e744e115@52.76.128.119:30303
+# 查看下载到的引导节点
+cat bootnodes.txt
 ```
+
+> 启动命令会通过 shell 替换直接读取该文件，无需手工填入 enode。
 
 ---
 
@@ -525,14 +518,12 @@ curl -s ip.sb
 
 > **提示**：如果您使用了自动部署脚本 `setup-node-testnet.sh`（或 Windows 的 `setup-node-testnet.ps1`），启动脚本已自动生成在安装目录下，可直接运行。
 
-<!-- TODO(MAINNET): 以下启动命令中的 --networkid 20250521 与 --bootnodes 为测试网参数，主网请替换为正式 chainID 与主网 bootnodes enode 列表。setup 脚本文件名也建议同步换成 setup-node-mainnet.*。 -->
-
 #### Linux / macOS
 
 ```bash
 geth \
   --datadir ./data \
-  --networkid 20250521 \
+  --networkid 31419 \
   --syncmode "full" \
   --gcmode "archive" \
   --cache 4096 \
@@ -553,7 +544,7 @@ geth \
   --hybrid.blskey ./bls-keystore.json \
   --hybrid.blspassword ./password.txt \
   --nat "any" \
-  --bootnodes "enode://6f05512feacca0b15cd94ed2165e8f96b16cf346cb16ba7810a37bea05851b3887ee8ef3ee790090cb3352f37a710bcd035d6b0bfd8961287751532c2b0717fb@54.169.152.20:30303,enode://2d2370d19648032a525287645a38b6f1a87199e282cf9a99ebc25f3387e79780695b6c517bd8180be4e9b6b93c39502185960203c35d1ea067924f40e0fd50f1@104.16.132.181:30303,enode://3fb2f819279b92f256718081af1c26bb94c4056f9938f8f1897666f1612ad478e2d84fc56428d20f99201d958951bde4c3f732d27c52d0c5138d9174e744e115@52.76.128.119:30303" \
+  --bootnodes "$(tr '\n' ',' < bootnodes.txt | sed 's/,$//')" \
   --log.file ./logs/geth.log \
   --log.maxsize 100 \
   --log.maxbackups 10 \
@@ -565,7 +556,7 @@ geth \
 ```powershell
 geth `
   --datadir .\data `
-  --networkid 20250521 `
+  --networkid 31419 `
   --syncmode "full" `
   --gcmode "archive" `
   --cache 4096 `
@@ -586,7 +577,7 @@ geth `
   --hybrid.blskey .\bls-keystore.json `
   --hybrid.blspassword .\password.txt `
   --nat "any" `
-  --bootnodes "enode://6f05512feacca0b15cd94ed2165e8f96b16cf346cb16ba7810a37bea05851b3887ee8ef3ee790090cb3352f37a710bcd035d6b0bfd8961287751532c2b0717fb@54.169.152.20:30303,enode://2d2370d19648032a525287645a38b6f1a87199e282cf9a99ebc25f3387e79780695b6c517bd8180be4e9b6b93c39502185960203c35d1ea067924f40e0fd50f1@104.16.132.181:30303,enode://3fb2f819279b92f256718081af1c26bb94c4056f9938f8f1897666f1612ad478e2d84fc56428d20f99201d958951bde4c3f732d27c52d0c5138d9174e744e115@52.76.128.119:30303" `
+  --bootnodes "$((Get-Content bootnodes.txt) -join ',')" `
   --log.file .\logs\geth.log `
   --log.maxsize 100 `
   --log.maxbackups 10 `
@@ -693,8 +684,6 @@ sudo journalctl -u geth-node -f
 
 在节点服务器上执行：
 
-<!-- TODO(MAINNET): 本章及后续章节所有 --chainid 20250521 均为测试网值；主网正式上线后请全局替换为主网 chainID。 -->
-
 **Linux / macOS:**
 
 ```bash
@@ -704,7 +693,7 @@ cd ~/pijs-node
 # 调用者地址同时作为提款地址（推荐普通用户使用）
 geth hybrid bls deposit \
   --keyfile ./keys/bls-keystore.json \
-  --chainid 20250521 \
+  --chainid 31419 \
   --address 0xYourWalletAddress \
   --amount 10000 \
   --output deposit_data.json
@@ -713,7 +702,7 @@ geth hybrid bls deposit \
 # 调用者地址和提款地址分离（适用于节点运营商代理质押）
 geth hybrid bls deposit \
   --keyfile ./keys/bls-keystore.json \
-  --chainid 20250521 \
+  --chainid 31419 \
   --address 0xCallerAddress \
   --withdrawal 0xOperatorWithdrawalAddress \
   --amount 10000 \
@@ -729,7 +718,7 @@ cd ~\pijs-node
 # 调用者地址同时作为提款地址（推荐普通用户使用）
 geth hybrid bls deposit `
   --keyfile .\keys\bls-keystore.json `
-  --chainid 20250521 `
+  --chainid 31419 `
   --address 0xYourWalletAddress `
   --amount 10000 `
   --output deposit_data.json
@@ -738,7 +727,7 @@ geth hybrid bls deposit `
 # 调用者地址和提款地址分离（适用于节点运营商代理质押）
 geth hybrid bls deposit `
   --keyfile .\keys\bls-keystore.json `
-  --chainid 20250521 `
+  --chainid 31419 `
   --address 0xCallerAddress `
   --withdrawal 0xOperatorWithdrawalAddress `
   --amount 10000 `
@@ -750,7 +739,7 @@ geth hybrid bls deposit `
 | 参数 | 说明 |
 |------|------|
 | `--keyfile` | BLS 密钥文件路径 |
-| `--chainid` | 链 ID（测试网：20250521） |
+| `--chainid` | 链 ID（测试网：31419） |
 | `--address` | 调用者钱包地址（用于支付质押金） |
 | `--withdrawal` | 提款地址（可选，不填则与 address 相同） |
 | `--amount` | 质押金额（PIJS） |
@@ -941,7 +930,7 @@ cd ~/pijs-node
 # 每次质押都需要生成新的签名文件
 geth hybrid bls deposit \
   --keyfile ./keys/bls-keystore.json \
-  --chainid 20250521 \
+  --chainid 31419 \
   --address 0xYourWalletAddress \
   --amount 5000 \
   --output deposit_additional.json
@@ -955,7 +944,7 @@ cd ~\pijs-node
 # 每次质押都需要生成新的签名文件
 geth hybrid bls deposit `
   --keyfile .\keys\bls-keystore.json `
-  --chainid 20250521 `
+  --chainid 31419 `
   --address 0xYourWalletAddress `
   --amount 5000 `
   --output deposit_additional.json
@@ -1021,7 +1010,7 @@ cd ~/pijs-node
 
 geth hybrid bls redeem \
   --keyfile ./keys/bls-keystore.json \
-  --chainid 20250521 \
+  --chainid 31419 \
   --orderid 1 \
   --withdrawal 0xYourWithdrawalAddress \
   --recipient 0xYourRecipientAddress \
@@ -1035,7 +1024,7 @@ cd ~\pijs-node
 
 geth hybrid bls redeem `
   --keyfile .\keys\bls-keystore.json `
-  --chainid 20250521 `
+  --chainid 31419 `
   --orderid 1 `
   --withdrawal 0xYourWithdrawalAddress `
   --recipient 0xYourRecipientAddress `
@@ -1178,7 +1167,7 @@ geth hybrid bls import --privkey 0x... --save ./bls-keystore.json
 # 质押签名（标准模式）
 geth hybrid bls deposit \
   --keyfile ./keys/bls-keystore.json \
-  --chainid 20250521 \
+  --chainid 31419 \
   --address 0x... \
   --amount 10000 \
   --output deposit_data.json
@@ -1186,7 +1175,7 @@ geth hybrid bls deposit \
 # 质押签名（运营商模式 - 指定独立提款地址）
 geth hybrid bls deposit \
   --keyfile ./keys/bls-keystore.json \
-  --chainid 20250521 \
+  --chainid 31419 \
   --address 0x... \
   --withdrawal 0x... \
   --amount 10000 \
@@ -1201,7 +1190,7 @@ geth hybrid bls sign \
 # 赎回签名
 geth hybrid bls redeem \
   --keyfile ./keys/bls-keystore.json \
-  --chainid 20250521 \
+  --chainid 31419 \
   --orderid 1 \
   --withdrawal 0x... \
   --recipient 0x... \
@@ -1214,7 +1203,7 @@ geth hybrid bls redeem \
 # 质押签名（标准模式）
 geth hybrid bls deposit `
   --keyfile .\keys\bls-keystore.json `
-  --chainid 20250521 `
+  --chainid 31419 `
   --address 0x... `
   --amount 10000 `
   --output deposit_data.json
@@ -1222,7 +1211,7 @@ geth hybrid bls deposit `
 # 质押签名（运营商模式 - 指定独立提款地址）
 geth hybrid bls deposit `
   --keyfile .\keys\bls-keystore.json `
-  --chainid 20250521 `
+  --chainid 31419 `
   --address 0x... `
   --withdrawal 0x... `
   --amount 10000 `
@@ -1237,7 +1226,7 @@ geth hybrid bls sign `
 # 赎回签名
 geth hybrid bls redeem `
   --keyfile .\keys\bls-keystore.json `
-  --chainid 20250521 `
+  --chainid 31419 `
   --orderid 1 `
   --withdrawal 0x... `
   --recipient 0x... `

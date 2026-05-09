@@ -1,6 +1,6 @@
 * [PIJS Node Guide](mainnet/en/)
 
-> ⚠️ **Current: MainNet · English — Placeholder, parameters TBD**
+> **Current: MainNet · English**
 
 * **Deploy Node**
   * [Environment Setup](mainnet/en/#step-1-environment-setup-and-installation)

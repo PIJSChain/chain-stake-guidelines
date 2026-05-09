@@ -1,11 +1,8 @@
 ﻿# ============================================================
 # PIJS Consensus Node One-Click Deployment Script (Windows PowerShell)
 # ============================================================
-# ⚠️  TODO(MAINNET): copied from the TestNet script; download URLs already switched to v1.26.0-mainnet.
-# Before MainNet launch you still need to replace:
-#   - chainID / networkid (TestNet value: 20250521)
-#   - bootnode enode list
-#   - Suggested rename: setup-node-mainnet.ps1
+# Note: filename retains the `-testnet` suffix for parity with the TestNet copy;
+# rename to setup-node-mainnet.ps1 if you prefer. Behaviour and parameters target MainNet.
 # ============================================================
 
 #Requires -Version 5.1
@@ -16,7 +13,7 @@ $GETH_VERSION = "v1.26.0-mainnet"
 $GENESIS_URL = "https://github.com/PIJSChain/pijs/releases/download/v1.26.0-mainnet/genesis.json"
 $BOOTNODE_URL = "https://github.com/PIJSChain/pijs/releases/download/v1.26.0-mainnet/bootnodes.txt"
 
-$CHAIN_ID = "20250521"
+$CHAIN_ID = "31419"
 $NETWORK_NAME = "PIJS Testnet"
 
 $DEFAULT_INSTALL_DIR = "$PSScriptRoot\pijs-node"
@@ -507,34 +504,31 @@ function Set-WithdrawalAddress {
 function Get-Bootnodes {
     Write-Step 9 "Configuring boot nodes"
 
-    # Default boot nodes
-    $defaultBootnodes = "enode://6f05512feacca0b15cd94ed2165e8f96b16cf346cb16ba7810a37bea05851b3887ee8ef3ee790090cb3352f37a710bcd035d6b0bfd8961287751532c2b0717fb@54.169.152.20:30303,enode://2d2370d19648032a525287645a38b6f1a87199e282cf9a99ebc25f3387e79780695b6c517bd8180be4e9b6b93c39502185960203c35d1ea067924f40e0fd50f1@104.16.132.181:30303,enode://3fb2f819279b92f256718081af1c26bb94c4056f9938f8f1897666f1612ad478e2d84fc56428d20f99201d958951bde4c3f732d27c52d0c5138d9174e744e115@52.76.128.119:30303"
-
     Write-Host ""
-    Write-Info "Boot nodes are used to connect to the PIJS network"
+    Write-Info "Boot nodes are used to connect to PIJS MainNet"
     Write-Host ""
 
-    # Try to download bootnodes.txt
-    Write-Info "Fetching boot node list..."
+    # MainNet requires the canonical bootnodes.txt from the official release.
+    # No fallback list is hardcoded — TestNet enodes would be incompatible with chainID 31419.
+    Write-Info "Downloading MainNet boot node list..."
     $bootnodesPath = Join-Path $INSTALL_DIR "bootnodes.txt"
 
     try {
         Invoke-WebRequest -Uri $BOOTNODE_URL -OutFile $bootnodesPath -UseBasicParsing
-        # Read bootnodes.txt and merge into comma-separated string
-        $bootnodesContent = Get-Content $bootnodesPath | Where-Object { $_ -notmatch "^#" -and $_ -ne "" }
-        if ($bootnodesContent) {
-            $script:BOOTNODES = ($bootnodesContent -join ",")
-            Write-Success "Boot nodes fetched from bootnodes.txt"
-        } else {
-            $script:BOOTNODES = $defaultBootnodes
-            Write-Info "Using default boot nodes"
-        }
     } catch {
-        $script:BOOTNODES = $defaultBootnodes
-        Write-Info "Using default boot nodes"
+        Write-Error-Custom "Failed to download bootnodes.txt: $BOOTNODE_URL"
+        Write-Error-Custom "Check your network connection and retry. Aborting setup. Error: $_"
+        exit 1
     }
 
-    Write-Success "Boot nodes configured"
+    $bootnodesContent = Get-Content $bootnodesPath | Where-Object { $_ -notmatch "^#" -and $_ -ne "" }
+    if (-not $bootnodesContent) {
+        Write-Error-Custom "bootnodes.txt is empty or contains no valid entries"
+        exit 1
+    }
+    $script:BOOTNODES = ($bootnodesContent -join ",")
+
+    Write-Success "MainNet boot nodes loaded from bootnodes.txt"
 }
 
 function Configure-Network {

@@ -3,9 +3,8 @@
 # For hard fork upgrades - updates client and chain config only
 # Does NOT delete existing chain data
 # ============================================================
-# ⚠️  TODO(MAINNET): copied from the TestNet script; download URLs already switched to v1.26.0-mainnet.
-# MainNet upgrade tags need to be maintained independently — bump
-# $GETH_VERSION / $GITHUB_RELEASE / $GENESIS_URL / $BOOTNODE_URL together for each new MainNet release.
+# Note: MainNet upgrade tags are maintained independently. When publishing a new
+# MainNet release, bump $GETH_VERSION / $GITHUB_RELEASE / $GENESIS_URL / $BOOTNODE_URL together.
 # ============================================================
 
 $ErrorActionPreference = "Stop"

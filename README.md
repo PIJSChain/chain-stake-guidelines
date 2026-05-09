@@ -4,7 +4,7 @@ Welcome to the PIJS Consensus Node deployment documentation. Pick a network and 
 
 ## MainNet · 主网
 
-> ⚠️ Placeholder — final parameters TBD. **Do not use for production deployment yet.**
+> Chain ID `31419` · Client `v1.26.0-mainnet`
 
 | Language | Documentation |
 |----------|---------------|

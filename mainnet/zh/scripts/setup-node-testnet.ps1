@@ -1,11 +1,8 @@
 ﻿# ============================================================
 # PIJS 共识节点一键部署脚本 (Windows PowerShell)
 # ============================================================
-# ⚠️  TODO(MAINNET): 本文件由 TestNet 脚本复制而来，下载地址已切换到 v1.26.0-mainnet。
-# 主网正式上线前仍需替换：
-#   - chainID / networkid（当前为测试网值 20250521）
-#   - 引导节点 enode 列表
-#   - 建议将文件重命名为 setup-node-mainnet.ps1
+# Note: filename retains the `-testnet` suffix for parity with the TestNet copy;
+# rename to setup-node-mainnet.ps1 if you prefer. Behaviour and parameters target MainNet.
 # ============================================================
 
 #Requires -Version 5.1
@@ -16,7 +13,7 @@ $GETH_VERSION = "v1.26.0-mainnet"
 $GENESIS_URL = "https://github.com/PIJSChain/pijs/releases/download/v1.26.0-mainnet/genesis.json"
 $BOOTNODE_URL = "https://github.com/PIJSChain/pijs/releases/download/v1.26.0-mainnet/bootnodes.txt"
 
-$CHAIN_ID = "20250521"
+$CHAIN_ID = "31419"
 $NETWORK_NAME = "PIJS Testnet"
 
 $DEFAULT_INSTALL_DIR = "$PSScriptRoot\pijs-node"
@@ -507,34 +504,31 @@ function Set-WithdrawalAddress {
 function Get-Bootnodes {
     Write-Step 9 "配置引导节点"
 
-    # 默认引导节点
-    $defaultBootnodes = "enode://6f05512feacca0b15cd94ed2165e8f96b16cf346cb16ba7810a37bea05851b3887ee8ef3ee790090cb3352f37a710bcd035d6b0bfd8961287751532c2b0717fb@54.169.152.20:30303,enode://2d2370d19648032a525287645a38b6f1a87199e282cf9a99ebc25f3387e79780695b6c517bd8180be4e9b6b93c39502185960203c35d1ea067924f40e0fd50f1@104.16.132.181:30303,enode://3fb2f819279b92f256718081af1c26bb94c4056f9938f8f1897666f1612ad478e2d84fc56428d20f99201d958951bde4c3f732d27c52d0c5138d9174e744e115@52.76.128.119:30303"
-
     Write-Host ""
-    Write-Info "引导节点用于连接到 PIJS 网络"
+    Write-Info "引导节点用于连接到 PIJS 主网"
     Write-Host ""
 
-    # 尝试下载 bootnodes.txt
-    Write-Info "正在获取引导节点列表..."
+    # 主网必须使用官方 release 中的 bootnodes.txt
+    # 不内置默认 enode 列表 —— 测试网 enode 与主网 chainID 31419 不兼容
+    Write-Info "正在下载主网引导节点列表..."
     $bootnodesPath = Join-Path $INSTALL_DIR "bootnodes.txt"
 
     try {
         Invoke-WebRequest -Uri $BOOTNODE_URL -OutFile $bootnodesPath -UseBasicParsing
-        # 读取 bootnodes.txt 并合并为逗号分隔的字符串
-        $bootnodesContent = Get-Content $bootnodesPath | Where-Object { $_ -notmatch "^#" -and $_ -ne "" }
-        if ($bootnodesContent) {
-            $script:BOOTNODES = ($bootnodesContent -join ",")
-            Write-Success "已从 bootnodes.txt 获取引导节点"
-        } else {
-            $script:BOOTNODES = $defaultBootnodes
-            Write-Info "使用默认引导节点"
-        }
     } catch {
-        $script:BOOTNODES = $defaultBootnodes
-        Write-Info "使用默认引导节点"
+        Write-Error-Custom "无法下载 bootnodes.txt：$BOOTNODE_URL"
+        Write-Error-Custom "请检查网络后重试，安装中止。错误：$_"
+        exit 1
     }
 
-    Write-Success "引导节点已配置"
+    $bootnodesContent = Get-Content $bootnodesPath | Where-Object { $_ -notmatch "^#" -and $_ -ne "" }
+    if (-not $bootnodesContent) {
+        Write-Error-Custom "bootnodes.txt 为空或不含有效 enode"
+        exit 1
+    }
+    $script:BOOTNODES = ($bootnodesContent -join ",")
+
+    Write-Success "已从 bootnodes.txt 加载主网引导节点"
 }
 
 function Configure-Network {

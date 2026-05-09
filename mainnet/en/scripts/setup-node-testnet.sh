@@ -3,11 +3,8 @@
 # PIJS Consensus Node One-Click Deployment Script
 # Supports: Linux (x86_64/ARM64), macOS (Intel/Apple Silicon)
 # ============================================================
-# ⚠️  TODO(MAINNET): copied from the TestNet script; download URLs already switched to v1.26.0-mainnet.
-# Before MainNet launch you still need to replace:
-#   - chainID / networkid (TestNet value: 20250521)
-#   - bootnode enode list
-#   - Suggested rename: setup-node-mainnet.sh
+# Note: filename retains the `-testnet` suffix for parity with the TestNet copy;
+# rename to setup-node-mainnet.sh if you prefer. Behaviour and parameters target MainNet.
 # ============================================================
 
 set -e
@@ -20,7 +17,7 @@ GENESIS_URL="https://github.com/PIJSChain/pijs/releases/download/v1.26.0-mainnet
 BOOTNODE_URL="https://github.com/PIJSChain/pijs/releases/download/v1.26.0-mainnet/bootnodes.txt"
 
 # Chain configuration
-CHAIN_ID="20250521"
+CHAIN_ID="31419"
 NETWORK_NAME="PIJS Testnet"
 
 # Default directory
@@ -595,30 +592,26 @@ configure_withdrawal() {
 get_bootnodes() {
     print_step "9" "Configuring boot nodes"
 
-    # Default boot nodes
-    DEFAULT_BOOTNODES="enode://6f05512feacca0b15cd94ed2165e8f96b16cf346cb16ba7810a37bea05851b3887ee8ef3ee790090cb3352f37a710bcd035d6b0bfd8961287751532c2b0717fb@54.169.152.20:30303,enode://2d2370d19648032a525287645a38b6f1a87199e282cf9a99ebc25f3387e79780695b6c517bd8180be4e9b6b93c39502185960203c35d1ea067924f40e0fd50f1@104.16.132.181:30303,enode://3fb2f819279b92f256718081af1c26bb94c4056f9938f8f1897666f1612ad478e2d84fc56428d20f99201d958951bde4c3f732d27c52d0c5138d9174e744e115@52.76.128.119:30303"
-
     echo ""
-    print_info "Boot nodes are used to connect to the PIJS network"
+    print_info "Boot nodes are used to connect to PIJS MainNet"
     echo ""
 
-    # Try to download bootnodes.txt
-    print_info "Fetching boot node list..."
-    if download_file "$BOOTNODE_URL" "bootnodes.txt" 2>/dev/null; then
-        # Read bootnodes.txt and merge into comma-separated string
-        BOOTNODES=$(cat bootnodes.txt | grep -v "^#" | grep -v "^$" | tr '\n' ',' | sed 's/,$//')
-        if [ -n "$BOOTNODES" ]; then
-            print_success "Boot nodes fetched from bootnodes.txt"
-        else
-            BOOTNODES="$DEFAULT_BOOTNODES"
-            print_info "Using default boot nodes"
-        fi
-    else
-        BOOTNODES="$DEFAULT_BOOTNODES"
-        print_info "Using default boot nodes"
+    # MainNet requires the canonical bootnodes.txt from the official release.
+    # No fallback list is hardcoded — TestNet enodes would be incompatible with chainID 31419.
+    print_info "Downloading MainNet boot node list..."
+    if ! download_file "$BOOTNODE_URL" "bootnodes.txt"; then
+        print_error "Failed to download bootnodes.txt from: $BOOTNODE_URL"
+        print_error "Check your network connection and retry. Aborting setup."
+        exit 1
     fi
 
-    print_success "Boot nodes configured"
+    BOOTNODES=$(cat bootnodes.txt | grep -v "^#" | grep -v "^$" | tr '\n' ',' | sed 's/,$//')
+    if [ -z "$BOOTNODES" ]; then
+        print_error "bootnodes.txt is empty or contains no valid entries"
+        exit 1
+    fi
+
+    print_success "MainNet boot nodes loaded from bootnodes.txt"
 }
 
 # Configure network environment

@@ -4,8 +4,8 @@
 # 用于硬分叉升级 - 仅更新客户端和链配置
 # 不会删除现有链数据
 # ============================================================
-# ⚠️  TODO(MAINNET): 本文件由 TestNet 脚本复制而来，下载地址已切换到 v1.26.0-mainnet。
-# 后续主网升级版本号需独立维护（同步更新 GETH_VERSION / GITHUB_RELEASE / GENESIS_URL / BOOTNODE_URL）。
+# Note: 主网升级版本号需独立维护——发布新版本时同步更新
+# GETH_VERSION / GITHUB_RELEASE / GENESIS_URL / BOOTNODE_URL。
 # ============================================================
 
 set -e
