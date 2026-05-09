@@ -1,0 +1,44 @@
+{
+  "config": {
+    "chainId": 31419,
+    "terminalTotalDifficulty": 18446744073709551615,
+    "homesteadBlock": 0,
+    "eip150Block": 0,
+    "eip155Block": 0,
+    "eip158Block": 0,
+    "byzantiumBlock": 0,
+    "constantinopleBlock": 0,
+    "petersburgBlock": 0,
+    "istanbulBlock": 0,
+    "muirGlacierBlock": 570217,
+    "berlinBlock": 570217,
+    "londonBlock": 570217,
+    "hybridBlock": 14212800,
+    "hybridSystemTxBlock": 14212800,
+    "hybrid": {
+        "slotTime": 2,
+        "epochLength": 43200,
+        "aggregationInterval": 1800,
+        "owner": "0x7B68C552F7F2282A1E477f45Fb4B6D50a42F559C",
+        "rewardPoolAddress": "0xBA2382B2609a13C97cD6C9836F19Ff58F73E5AB7"
+    },
+    "clique": {
+      "period": 2,
+      "epoch": 30000
+    }
+  },
+  "difficulty": "1",
+  "gasLimit": "8000000",
+  "extradata": "0x00000000000000000000000000000000000000000000000000000000000000009118b47c6b6f58f27bea08bbf4410cc00c883f2cfcbe3515e0985f1e37b6b37326379124f4c3df162dd48856599d4a64e20800ed9e02e6d3eb26f4050000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+  "alloc": {
+    "0x9118b47c6b6f58f27bea08bbf4410cc00c883f2c": {
+      "balance": "100000000000000000000000000"
+    },
+    "0xfcbe3515e0985f1e37b6b37326379124f4c3df16": {
+      "balance": "100000000000000000000000000"
+    },
+    "0x2dd48856599d4a64e20800ed9e02e6d3eb26f405": {
+      "balance": "30000000000000000000000000"
+    }
+  }
+}

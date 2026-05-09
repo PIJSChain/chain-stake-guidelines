@@ -1,0 +1,13 @@
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS junk
+Thumbs.db
+desktop.ini

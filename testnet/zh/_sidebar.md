@@ -1,0 +1,26 @@
+* [首页](testnet/zh/)
+
+> **当前：测试网 (TestNet) · 简体中文**
+
+* **部署节点**
+  * [环境准备与安装](testnet/zh/#第一步环境准备与安装)
+  * [生成密钥](testnet/zh/#第二步生成密钥)
+  * [启动节点](testnet/zh/#第三步启动节点)
+
+* **质押操作**
+  * [发起质押](testnet/zh/#第四步发起质押)
+  * [认领节点](testnet/zh/#第五步认领节点)
+  * [增加质押](testnet/zh/#后续操作增加质押)
+  * [赎回质押](testnet/zh/#赎回质押)
+
+* **参考**
+  * [常见问题](testnet/zh/#常见问题)
+  * [快速命令参考](testnet/zh/#快速命令参考)
+
+---
+
+* **网络切换 / Network**
+  * [切换到主网 (MainNet)](mainnet/zh/)
+
+* **语言切换 / Language**
+  * [Switch to English](testnet/en/)
