@@ -11,3 +11,7 @@
 # OS junk
 Thumbs.db
 desktop.ini
+
+# bootnodes.txt is maintained in the pijs release repository
+mainnet/bootnodes.txt
+testnet/bootnodes.txt
