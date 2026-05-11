@@ -755,7 +755,7 @@ geth hybrid bls deposit `
 |------|---------|---------|
 | Minimum Stake | 2,000 PIJS | TBD |
 | Maximum Stake | 100,0000 PIJS | TBD |
-| Stake Period | 7 days | TBD |
+| Stake Period | 7 days | 180 days (default) |
 | Grace Period | 72 hours after maturity | TBD |
 | Auto-renewal | Auto-renews if not redeemed | TBD |
 
@@ -993,7 +993,7 @@ Stake Start ────── Stake Period ──────> Maturity ──�
             Earning rewards                Redemption window         Cannot redeem, restarts next cycle
 ```
 
-> Testnet stake period is 7 days. Mainnet stake period is TBD.
+> Testnet stake period is 7 days. Mainnet default stake period is 180 days.
 
 ### 7.2 Check Redeemable Orders
 
@@ -1093,7 +1093,7 @@ Validators receive PIJS token rewards based on their staking network weight.
 
 ### When can I withdraw my staked PIJS?
 
-After staking matures, you can unlock within **72 hours**. If not unlocked within 72 hours, it automatically enters the next cycle. Testnet stake period is 7 days. Mainnet stake period is TBD.
+After staking matures, you can unlock within **72 hours**. If not unlocked within 72 hours, it automatically enters the next cycle. Testnet stake period is 7 days. Mainnet default stake period is 180 days.
 
 ### How are PIJSChain staking rewards settled?
 
